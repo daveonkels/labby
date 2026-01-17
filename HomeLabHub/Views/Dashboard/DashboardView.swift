@@ -232,6 +232,10 @@ struct DashboardBackground: View {
         allSettings.first
     }
 
+    private var gradientPreset: GradientPreset {
+        settings?.gradientPreset ?? .default
+    }
+
     var body: some View {
         ZStack {
             // Base background color
@@ -251,36 +255,62 @@ struct DashboardBackground: View {
                     .opacity(colorScheme == .dark ? 0.7 : 0.75)
                     .ignoresSafeArea()
             } else {
-                // Default subtle gradient orbs
-                GeometryReader { geo in
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color.green.opacity(0.15), Color.clear],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: geo.size.width * 0.4
-                            )
-                        )
-                        .frame(width: geo.size.width * 0.8)
-                        .position(x: geo.size.width * 0.9, y: geo.size.height * 0.1)
-                        .blur(radius: 60)
-
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color.blue.opacity(0.1), Color.clear],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: geo.size.width * 0.3
-                            )
-                        )
-                        .frame(width: geo.size.width * 0.6)
-                        .position(x: geo.size.width * 0.1, y: geo.size.height * 0.8)
-                        .blur(radius: 50)
-                }
-                .ignoresSafeArea()
+                // Gradient based on selected preset
+                GradientPresetBackground(preset: gradientPreset)
+                    .ignoresSafeArea()
             }
+        }
+    }
+}
+
+struct GradientPresetBackground: View {
+    let preset: GradientPreset
+
+    var body: some View {
+        if preset == .default {
+            // Default subtle gradient orbs
+            GeometryReader { geo in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.green.opacity(0.15), Color.clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: geo.size.width * 0.4
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.8)
+                    .position(x: geo.size.width * 0.9, y: geo.size.height * 0.1)
+                    .blur(radius: 60)
+
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.blue.opacity(0.1), Color.clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: geo.size.width * 0.3
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.6)
+                    .position(x: geo.size.width * 0.1, y: geo.size.height * 0.8)
+                    .blur(radius: 50)
+            }
+        } else if preset.isRadial {
+            GeometryReader { geo in
+                RadialGradient(
+                    colors: preset.colors.map { $0.opacity(0.25) } + [Color.clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: max(geo.size.width, geo.size.height) * 0.7
+                )
+            }
+        } else {
+            LinearGradient(
+                colors: preset.colors.map { $0.opacity(0.3) },
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
     }
 }

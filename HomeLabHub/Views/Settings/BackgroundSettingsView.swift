@@ -38,13 +38,29 @@ struct BackgroundSettingsView: View {
                 HStack {
                     Label(backgroundTypeLabel, systemImage: backgroundTypeIcon)
                     Spacer()
-                    if settings.backgroundType != .gradient {
+                    if settings.backgroundType != .gradient || settings.gradientPreset != .default {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                     }
                 }
             } header: {
                 Text("Current Background")
+            }
+
+            // Gradient Presets Section
+            Section {
+                GradientPresetGrid(
+                    selectedPreset: settings.backgroundType == .gradient ? settings.gradientPreset : nil,
+                    onSelect: { preset in
+                        withAnimation {
+                            settings.setGradientPreset(preset)
+                            try? modelContext.save()
+                        }
+                    }
+                )
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            } header: {
+                Text("Gradients")
             }
 
             // Options Section
@@ -110,7 +126,7 @@ struct BackgroundSettingsView: View {
     private var backgroundTypeLabel: String {
         switch settings.backgroundType {
         case .gradient:
-            return "Default Gradient"
+            return "\(settings.gradientPreset.displayName) Gradient"
         case .customImage:
             return "Custom Photo"
         case .aiGenerated:
@@ -198,8 +214,8 @@ struct BackgroundPreview: View {
                 // Overlay for readability preview
                 Color.black.opacity(0.1)
             } else {
-                // Default gradient preview
-                GradientBackgroundPreview()
+                // Gradient preview based on selected preset
+                GradientBackgroundPreview(preset: settings.gradientPreset)
             }
 
             // Sample content overlay
@@ -220,36 +236,53 @@ struct BackgroundPreview: View {
 }
 
 struct GradientBackgroundPreview: View {
+    var preset: GradientPreset = .default
+
     var body: some View {
         ZStack {
             Color(.systemGroupedBackground)
 
-            GeometryReader { geo in
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.green.opacity(0.15), Color.clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: geo.size.width * 0.4
+            if preset == .default {
+                GeometryReader { geo in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.green.opacity(0.15), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geo.size.width * 0.4
+                            )
                         )
-                    )
-                    .frame(width: geo.size.width * 0.6)
-                    .position(x: geo.size.width * 0.85, y: geo.size.height * 0.2)
-                    .blur(radius: 30)
+                        .frame(width: geo.size.width * 0.6)
+                        .position(x: geo.size.width * 0.85, y: geo.size.height * 0.2)
+                        .blur(radius: 30)
 
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.blue.opacity(0.1), Color.clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: geo.size.width * 0.3
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.blue.opacity(0.1), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geo.size.width * 0.3
+                            )
                         )
-                    )
-                    .frame(width: geo.size.width * 0.5)
-                    .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
-                    .blur(radius: 25)
+                        .frame(width: geo.size.width * 0.5)
+                        .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
+                        .blur(radius: 25)
+                }
+            } else if preset.isRadial {
+                RadialGradient(
+                    colors: preset.colors.map { $0.opacity(0.3) } + [Color.clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 300
+                )
+            } else {
+                LinearGradient(
+                    colors: preset.colors.map { $0.opacity(0.4) },
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
         }
     }
@@ -270,6 +303,125 @@ struct PreviewCard: View {
                         .frame(width: 50, height: 8)
                 }
             }
+    }
+}
+
+// MARK: - Gradient Preset Grid
+
+struct GradientPresetGrid: View {
+    let selectedPreset: GradientPreset?
+    let onSelect: (GradientPreset) -> Void
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(GradientPreset.allCases, id: \.self) { preset in
+                GradientPresetButton(
+                    preset: preset,
+                    isSelected: selectedPreset == preset,
+                    action: { onSelect(preset) }
+                )
+            }
+        }
+    }
+}
+
+struct GradientPresetButton: View {
+    let preset: GradientPreset
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                GradientPresetThumbnail(preset: preset)
+                    .frame(height: 70)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
+                    }
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                Text(preset.displayName)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                    .frame(maxWidth: .infinity)
+                    .offset(y: 20)
+            }
+            .padding(.bottom, 16)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(preset.displayName) gradient")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+struct GradientPresetThumbnail: View {
+    let preset: GradientPreset
+
+    var body: some View {
+        if preset == .default {
+            // Special handling for default orb style
+            ZStack {
+                Color(.systemGroupedBackground)
+
+                GeometryReader { geo in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.green.opacity(0.3), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geo.size.width * 0.4
+                            )
+                        )
+                        .frame(width: geo.size.width * 0.6)
+                        .position(x: geo.size.width * 0.75, y: geo.size.height * 0.3)
+                        .blur(radius: 8)
+
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.blue.opacity(0.25), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geo.size.width * 0.35
+                            )
+                        )
+                        .frame(width: geo.size.width * 0.5)
+                        .position(x: geo.size.width * 0.25, y: geo.size.height * 0.7)
+                        .blur(radius: 6)
+                }
+            }
+        } else if preset.isRadial {
+            RadialGradient(
+                colors: preset.colors.map { $0.opacity(0.8) },
+                center: .center,
+                startRadius: 0,
+                endRadius: 100
+            )
+        } else {
+            LinearGradient(
+                colors: preset.colors.map { $0.opacity(0.9) },
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
     }
 }
 
