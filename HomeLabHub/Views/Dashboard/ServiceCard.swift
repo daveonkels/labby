@@ -4,7 +4,6 @@ struct ServiceCard: View {
     let service: Service
 
     @Environment(\.selectedTab) private var selectedTab
-    @Environment(\.colorScheme) private var colorScheme
 
     private var hasValidURL: Bool {
         guard let url = service.url else { return false }
@@ -18,16 +17,13 @@ struct ServiceCard: View {
             VStack(spacing: 16) {
                 // Icon container
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .fill(.clear)
                     .frame(width: 56, height: 56)
                     .overlay {
                         ServiceIcon(service: service)
                             .frame(width: 28, height: 28)
                     }
-                    .overlay {
-                        Circle()
-                            .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
-                    }
+                    .glassEffect(.regular, in: Circle())
 
                 // Name + Status
                 VStack(spacing: 6) {
@@ -49,28 +45,7 @@ struct ServiceCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 24)
             .padding(.horizontal, 16)
-            .background {
-                ZStack {
-                    // Base card
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.ultraThinMaterial)
-
-                    // Inner highlight
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(colorScheme == .dark ? 0.1 : 0.5),
-                                    Color.white.opacity(0)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                }
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 8, y: 4)
-            }
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .opacity(hasValidURL ? 1.0 : 0.6)
         }
         .buttonStyle(ServiceCardButtonStyle())
