@@ -475,8 +475,10 @@ struct CategoryHeader: View {
             }
         }
         .padding(.vertical, 10)
-        .padding(.horizontal, 4)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, -16)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) category, \(onlineCount) of \(count) services online")
     }
