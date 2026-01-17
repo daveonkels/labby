@@ -24,7 +24,9 @@ struct SwipeableBrowserView: View {
     @Bindable var tabManager: TabManager
     @State private var selectedIndex: Int = 0
     @State private var toolbarVisible: Bool = true
+    @State private var dotsVisible: Bool = false
     @State private var hideToolbarTask: Task<Void, Never>?
+    @State private var hideDotsTask: Task<Void, Never>?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -39,6 +41,7 @@ struct SwipeableBrowserView: View {
             .ignoresSafeArea(.all) // Extend under status bar for seamless look
             .onChange(of: selectedIndex) { _, newIndex in
                 syncActiveTab(to: newIndex)
+                showDotsTemporarily()
             }
             .onAppear {
                 syncSelectedIndex()
@@ -60,12 +63,16 @@ struct SwipeableBrowserView: View {
                 .opacity(toolbarVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.25), value: toolbarVisible)
 
-                // Page indicator - always visible, just above tab bar
-                PageDots(
-                    count: tabManager.tabs.count,
-                    currentIndex: selectedIndex
-                )
-                .padding(.bottom, 4)
+                // Page indicator - only shown when multiple tabs and during/after swipe
+                if tabManager.tabs.count > 1 {
+                    PageDots(
+                        count: tabManager.tabs.count,
+                        currentIndex: selectedIndex
+                    )
+                    .padding(.bottom, 4)
+                    .opacity(dotsVisible ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.25), value: dotsVisible)
+                }
             }
         }
     }
@@ -99,6 +106,19 @@ struct SwipeableBrowserView: View {
             if !Task.isCancelled {
                 await MainActor.run {
                     toolbarVisible = false
+                }
+            }
+        }
+    }
+
+    private func showDotsTemporarily() {
+        dotsVisible = true
+        hideDotsTask?.cancel()
+        hideDotsTask = Task {
+            try? await Task.sleep(for: .seconds(5))
+            if !Task.isCancelled {
+                await MainActor.run {
+                    dotsVisible = false
                 }
             }
         }
