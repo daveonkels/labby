@@ -107,8 +107,10 @@ actor HealthChecker {
 
     /// Performs the actual HTTP health check (no Service access)
     nonisolated func performHealthCheck(url: URL, name: String) async -> Bool {
+        print("🏥 [Health] Checking: \(name) at \(url.absoluteString)")
+
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = "HEAD"  // Use HEAD for faster health checks
         request.timeoutInterval = 8
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
@@ -118,18 +120,16 @@ actor HealthChecker {
 
             if let httpResponse = response as? HTTPURLResponse {
                 let isHealthy = (200...499).contains(httpResponse.statusCode)
-                if !isHealthy {
-                    print("🏥 [Health] \(name): HTTP \(httpResponse.statusCode)")
-                }
+                print("🏥 [Health] \(name): HTTP \(httpResponse.statusCode) -> \(isHealthy ? "online" : "offline")")
                 return isHealthy
             }
+            print("🏥 [Health] \(name): No HTTP response")
             return false
         } catch let error as URLError {
-            if error.code != .cancelled {
-                print("🏥 [Health] \(name): \(error.localizedDescription)")
-            }
+            print("🏥 [Health] \(name): URLError \(error.code.rawValue) - \(error.localizedDescription)")
             return false
         } catch {
+            print("🏥 [Health] \(name): Error - \(error.localizedDescription)")
             return false
         }
     }

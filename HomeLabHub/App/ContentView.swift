@@ -62,7 +62,6 @@ struct MainTabView: View {
                 }
             }
         }
-        .searchable(text: $searchText, prompt: "Search services")
     }
 }
 

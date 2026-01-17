@@ -29,6 +29,7 @@ struct SearchResultsView: View {
             }
         }
         .navigationTitle("Search")
+        .searchable(text: $searchText, prompt: "Search services")
     }
 }
 
