@@ -249,9 +249,14 @@ struct HomepageClient {
                         iconURL = icon
                     } else if icon.hasPrefix("/") {
                         iconURL = resolveURL(icon)
-                    } else if icon.hasPrefix("si-") || icon.hasPrefix("mdi-") {
-                        // Simple Icons or Material Design Icons - skip for now
-                        iconURL = nil
+                    } else if icon.hasPrefix("si-") {
+                        // Simple Icons - use simpleicons.org CDN
+                        let iconName = String(icon.dropFirst(3)) // Remove "si-" prefix
+                        iconURL = "https://cdn.simpleicons.org/\(iconName)"
+                    } else if icon.hasPrefix("mdi-") {
+                        // Material Design Icons - try dashboard-icons as fallback
+                        let iconName = String(icon.dropFirst(4)) // Remove "mdi-" prefix
+                        iconURL = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/\(iconName).png"
                     } else {
                         // Dashboard icon - use CDN URL with normalized name
                         let normalizedIcon = normalizeIconName(icon)
@@ -270,7 +275,11 @@ struct HomepageClient {
                 )
 
                 services.append(service)
-                print("📄 [Homepage]   Parsed: \(serviceName) -> \(href ?? "no URL")")
+                if let icon = icon {
+                    print("📄 [Homepage]   Parsed: \(serviceName) -> icon: \(icon) -> \(iconURL ?? "nil")")
+                } else {
+                    print("📄 [Homepage]   Parsed: \(serviceName) -> no icon")
+                }
             }
         }
 
