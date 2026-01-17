@@ -1,0 +1,239 @@
+import SwiftUI
+import SwiftData
+
+struct ConnectionSetupView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = "My Homepage"
+    @State private var urlString = ""
+    @State private var isValidating = false
+    @State private var validationError: String?
+    @State private var isValid = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Name", text: $name)
+                        .textContentType(.name)
+
+                    TextField("URL", text: $urlString)
+                        .textContentType(.URL)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .onChange(of: urlString) {
+                            isValid = false
+                            validationError = nil
+                        }
+                } header: {
+                    Text("Connection Details")
+                } footer: {
+                    Text("Enter the URL of your Homepage instance (e.g., http://192.168.1.100:3000)")
+                }
+
+                Section {
+                    Button {
+                        Task {
+                            await validateConnection()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Test Connection")
+
+                            Spacer()
+
+                            if isValidating {
+                                ProgressView()
+                            } else if isValid {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            } else if validationError != nil {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    }
+                    .disabled(urlString.isEmpty || isValidating)
+
+                    if let error = validationError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle("Add Connection")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveConnection()
+                    }
+                    .disabled(!isValid)
+                }
+            }
+        }
+    }
+
+    private func validateConnection() async {
+        isValidating = true
+        validationError = nil
+        isValid = false
+
+        // Normalize URL
+        var normalizedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !normalizedURL.hasPrefix("http://") && !normalizedURL.hasPrefix("https://") {
+            normalizedURL = "http://" + normalizedURL
+        }
+
+        guard let url = URL(string: normalizedURL) else {
+            validationError = "Invalid URL format"
+            isValidating = false
+            return
+        }
+
+        // Update the text field with normalized URL
+        urlString = normalizedURL
+
+        // Try to connect
+        do {
+            let (_, response) = try await URLSession.shared.data(from: url)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                if (200...299).contains(httpResponse.statusCode) {
+                    isValid = true
+                } else {
+                    validationError = "Server returned status \(httpResponse.statusCode)"
+                }
+            }
+        } catch {
+            validationError = "Could not connect: \(error.localizedDescription)"
+        }
+
+        isValidating = false
+    }
+
+    private func saveConnection() {
+        let connection = HomepageConnection(
+            baseURLString: urlString,
+            name: name
+        )
+
+        modelContext.insert(connection)
+
+        // Trigger sync after saving
+        Task {
+            await SyncManager.shared.syncConnection(connection, modelContext: modelContext)
+        }
+
+        dismiss()
+    }
+}
+
+struct AddServiceView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var urlString = ""
+    @State private var category = ""
+    @State private var iconSymbol = "app.fill"
+
+    private let commonSymbols = [
+        "app.fill", "play.tv", "film", "tv", "movieclapper",
+        "house", "server.rack", "network", "cloud", "doc",
+        "folder", "photo", "music.note", "gamecontroller",
+        "chart.bar", "gear", "hammer", "wrench"
+    ]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Name", text: $name)
+
+                    TextField("URL", text: $urlString)
+                        .textContentType(.URL)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    TextField("Category (optional)", text: $category)
+                } header: {
+                    Text("Service Details")
+                }
+
+                Section {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 12) {
+                        ForEach(commonSymbols, id: \.self) { symbol in
+                            Button {
+                                iconSymbol = symbol
+                            } label: {
+                                Image(systemName: symbol)
+                                    .font(.title2)
+                                    .frame(width: 44, height: 44)
+                                    .background(iconSymbol == symbol ? Color.accentColor.opacity(0.2) : Color.clear)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } header: {
+                    Text("Icon")
+                }
+            }
+            .navigationTitle("Add Service")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveService()
+                    }
+                    .disabled(name.isEmpty || urlString.isEmpty)
+                }
+            }
+        }
+    }
+
+    private func saveService() {
+        // Normalize URL
+        var normalizedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !normalizedURL.hasPrefix("http://") && !normalizedURL.hasPrefix("https://") {
+            normalizedURL = "http://" + normalizedURL
+        }
+
+        let service = Service(
+            name: name,
+            urlString: normalizedURL,
+            iconSFSymbol: iconSymbol,
+            category: category.isEmpty ? nil : category,
+            isManuallyAdded: true
+        )
+
+        modelContext.insert(service)
+        dismiss()
+    }
+}
+
+#Preview("Connection Setup") {
+    ConnectionSetupView()
+}
+
+#Preview("Add Service") {
+    AddServiceView()
+        .modelContainer(for: Service.self, inMemory: true)
+}
