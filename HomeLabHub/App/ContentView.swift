@@ -19,10 +19,11 @@ struct ContentView: View {
 
     @State private var selectedTab: Tab = .dashboard
 
-    enum Tab {
+    enum Tab: Hashable {
         case dashboard
         case browser
         case settings
+        case search
     }
 
     var body: some View {
@@ -39,27 +40,29 @@ struct ContentView: View {
 
 struct MainTabView: View {
     @Binding var selectedTab: ContentView.Tab
+    @State private var searchText = ""
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DashboardView()
-                .tabItem {
-                    Label("Dashboard", systemImage: "square.grid.2x2")
-                }
-                .tag(ContentView.Tab.dashboard)
+            Tab("Dashboard", systemImage: "square.grid.2x2.fill", value: .dashboard) {
+                DashboardView(searchText: $searchText)
+            }
 
-            BrowserContainerView()
-                .tabItem {
-                    Label("Browser", systemImage: "globe")
-                }
-                .tag(ContentView.Tab.browser)
+            Tab("Browser", systemImage: "globe", value: .browser) {
+                BrowserContainerView()
+            }
 
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gear")
+            Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
+                SettingsView()
+            }
+
+            Tab("Search", systemImage: "magnifyingglass", value: .search, role: .search) {
+                NavigationStack {
+                    SearchResultsView(searchText: $searchText)
                 }
-                .tag(ContentView.Tab.settings)
+            }
         }
+        .searchable(text: $searchText, prompt: "Search services")
     }
 }
 

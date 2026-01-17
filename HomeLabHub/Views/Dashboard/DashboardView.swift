@@ -12,7 +12,6 @@ struct DashboardView: View {
     @Query(sort: \Service.sortOrder) private var services: [Service]
 
     @Binding var searchText: String
-    @Binding var isSearchActive: Bool
     @State private var isRefreshing = false
     @State private var healthFilter: HealthFilter? = nil
 
@@ -20,9 +19,8 @@ struct DashboardView: View {
         healthFilter != nil
     }
 
-    init(searchText: Binding<String> = .constant(""), isSearchActive: Binding<Bool> = .constant(false)) {
+    init(searchText: Binding<String> = .constant("")) {
         _searchText = searchText
-        _isSearchActive = isSearchActive
     }
 
     private var filteredServices: [Service] {
@@ -61,7 +59,7 @@ struct DashboardView: View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
+                    LazyVStack(spacing: 12, pinnedViews: [.sectionHeaders]) {
                         // Custom header when filter is active
                         HStack {
                             Text("Dashboard")
