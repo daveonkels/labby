@@ -33,8 +33,8 @@ struct WebViewRepresentable: UIViewRepresentable {
         // Store reference
         tab.webView = webView
 
-        // Load initial URL
-        if let url = tab.service.url {
+        // Load initial URL (uses restored URL if available)
+        if let url = tab.urlToLoad {
             webView.load(URLRequest(url: url))
         }
 
@@ -63,9 +63,10 @@ struct WebViewRepresentable: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             tab.isLoading = false
-            tab.currentURL = webView.url
             tab.title = webView.title
             updateNavigationState(webView)
+            // Persist the current URL for tab restoration
+            TabManager.shared.updateTabURL(tab, url: webView.url)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

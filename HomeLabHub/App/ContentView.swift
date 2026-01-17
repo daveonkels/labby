@@ -45,6 +45,7 @@ struct ContentView: View {
 }
 
 struct MainTabView: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var selectedTab: ContentView.Tab
     @State private var searchText = ""
 
@@ -67,6 +68,10 @@ struct MainTabView: View {
                     SearchResultsView(searchText: $searchText)
                 }
             }
+        }
+        .onAppear {
+            // Restore previously open browser tabs
+            TabManager.shared.restoreTabs(modelContext: modelContext)
         }
     }
 }
