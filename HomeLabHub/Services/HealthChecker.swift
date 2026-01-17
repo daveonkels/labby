@@ -111,16 +111,23 @@ actor HealthChecker {
     nonisolated func performHealthCheck(url: URL, name: String) async -> Bool {
         print("🏥 [Health] Checking: \(name) at \(url.absoluteString)")
 
+        // Try HEAD first for efficiency
         var request = URLRequest(url: url)
-        request.httpMethod = "HEAD"  // Use HEAD for faster health checks
+        request.httpMethod = "HEAD"
         request.timeoutInterval = 8
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
         do {
-            // Use health check session to allow self-signed certificates
             let (_, response) = try await Self.healthCheckSession.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
+                // If HEAD returns 501 (Not Implemented), fall back to GET
+                // Some servers like Transmission don't support HEAD requests
+                if httpResponse.statusCode == 501 {
+                    print("🏥 [Health] \(name): HEAD not supported, trying GET")
+                    return await performGetHealthCheck(url: url, name: name)
+                }
+
                 let isHealthy = (200...499).contains(httpResponse.statusCode)
                 print("🏥 [Health] \(name): HTTP \(httpResponse.statusCode) -> \(isHealthy ? "online" : "offline")")
                 return isHealthy
@@ -132,6 +139,28 @@ actor HealthChecker {
             return false
         } catch {
             print("🏥 [Health] \(name): Error - \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Fallback GET health check for servers that don't support HEAD
+    nonisolated private func performGetHealthCheck(url: URL, name: String) async -> Bool {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+
+        do {
+            let (_, response) = try await Self.healthCheckSession.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let isHealthy = (200...499).contains(httpResponse.statusCode)
+                print("🏥 [Health] \(name): HTTP \(httpResponse.statusCode) (GET) -> \(isHealthy ? "online" : "offline")")
+                return isHealthy
+            }
+            return false
+        } catch {
+            print("🏥 [Health] \(name): GET fallback failed - \(error.localizedDescription)")
             return false
         }
     }
