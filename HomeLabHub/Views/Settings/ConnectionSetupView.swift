@@ -105,7 +105,7 @@ struct ConnectionSetupView: View {
 
         // Try to connect
         do {
-            let (_, response) = try await URLSession.shared.data(from: url)
+            let (_, response) = try await InsecureURLSession.shared.data(from: url)
 
             if let httpResponse = response as? HTTPURLResponse {
                 if (200...299).contains(httpResponse.statusCode) {

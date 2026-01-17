@@ -5,10 +5,17 @@ actor HealthChecker {
     static let shared = HealthChecker()
 
     private var isRunning = false
-    private var monitoringTask: Task<Void, Never>?
     private let checkInterval: TimeInterval = 60 // seconds between full checks
     private let cacheInterval: TimeInterval = 55 // skip if checked within this time
     private let maxConcurrentChecks = 5
+
+    /// URLSession with shorter timeouts for health checks (uses shared InsecureURLSession delegate)
+    private static let healthCheckSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 15
+        return URLSession(configuration: config, delegate: InsecureSSLDelegate.shared, delegateQueue: nil)
+    }()
 
     private init() {}
 
@@ -35,6 +42,7 @@ actor HealthChecker {
     }
 
     /// Checks all services, respecting cache interval
+    @MainActor
     func checkAllServices(modelContext: ModelContext) async {
         let descriptor = FetchDescriptor<Service>()
 
@@ -43,101 +51,100 @@ actor HealthChecker {
             return
         }
 
-        // Filter to only services that need checking
+        // Filter to only services that need checking and extract data for parallel processing
         let now = Date()
-        let servicesToCheck = services.filter { service in
-            guard service.url != nil else { return false }
-            guard let lastCheck = service.lastHealthCheck else { return true }
-            return now.timeIntervalSince(lastCheck) >= cacheInterval
+        var checkTasks: [(service: Service, url: URL, name: String)] = []
+
+        for service in services {
+            guard let url = service.url else { continue }
+            guard let lastCheck = service.lastHealthCheck else {
+                checkTasks.append((service, url, service.name))
+                continue
+            }
+            if now.timeIntervalSince(lastCheck) >= cacheInterval {
+                checkTasks.append((service, url, service.name))
+            }
         }
 
-        if servicesToCheck.isEmpty {
+        if checkTasks.isEmpty {
             print("🏥 [Health] All services recently checked, skipping")
             return
         }
 
-        print("🏥 [Health] Checking \(servicesToCheck.count)/\(services.count) services")
+        print("🏥 [Health] Checking \(checkTasks.count)/\(services.count) services")
 
-        // Use limited concurrency to avoid connection spam
-        await withTaskGroup(of: Void.self) { group in
+        // Perform health checks with limited concurrency
+        await withTaskGroup(of: (Int, Bool).self) { group in
             var activeCount = 0
 
-            for service in servicesToCheck {
+            for (index, task) in checkTasks.enumerated() {
                 // Wait if we've hit the concurrency limit
                 if activeCount >= maxConcurrentChecks {
-                    await group.next()
+                    if let result = await group.next() {
+                        checkTasks[result.0].service.isHealthy = result.1
+                        checkTasks[result.0].service.lastHealthCheck = Date()
+                    }
                     activeCount -= 1
                 }
 
                 group.addTask {
-                    await self.checkService(service)
+                    let isHealthy = await self.performHealthCheck(url: task.url, name: task.name)
+                    return (index, isHealthy)
                 }
                 activeCount += 1
             }
 
-            // Wait for remaining tasks
-            await group.waitForAll()
+            // Collect remaining results
+            for await result in group {
+                checkTasks[result.0].service.isHealthy = result.1
+                checkTasks[result.0].service.lastHealthCheck = Date()
+            }
         }
 
         try? modelContext.save()
         print("🏥 [Health] Check complete")
     }
 
-    /// Checks a single service's health
-    func checkService(_ service: Service) async {
-        guard let url = service.url else {
-            await MainActor.run {
-                service.isHealthy = false
-                service.lastHealthCheck = Date()
-            }
-            return
-        }
-
-        // Use GET instead of HEAD - more reliable across services
+    /// Performs the actual HTTP health check (no Service access)
+    nonisolated func performHealthCheck(url: URL, name: String) async -> Bool {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = 8
-        // Only read a tiny bit of the response
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            // Use health check session to allow self-signed certificates
+            let (_, response) = try await Self.healthCheckSession.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
                 let isHealthy = (200...499).contains(httpResponse.statusCode)
-                await MainActor.run {
-                    service.isHealthy = isHealthy
-                    service.lastHealthCheck = Date()
-                }
                 if !isHealthy {
-                    print("🏥 [Health] \(service.name): HTTP \(httpResponse.statusCode)")
+                    print("🏥 [Health] \(name): HTTP \(httpResponse.statusCode)")
                 }
-            } else {
-                await MainActor.run {
-                    service.isHealthy = false
-                    service.lastHealthCheck = Date()
-                }
+                return isHealthy
             }
+            return false
         } catch let error as URLError {
-            // Connection refused, timeout, etc. - service is down
-            await MainActor.run {
-                service.isHealthy = false
-                service.lastHealthCheck = Date()
-            }
-            // Only log meaningful errors, not cancellations
             if error.code != .cancelled {
-                print("🏥 [Health] \(service.name): \(error.localizedDescription)")
+                print("🏥 [Health] \(name): \(error.localizedDescription)")
             }
+            return false
         } catch {
-            await MainActor.run {
-                service.isHealthy = false
-                service.lastHealthCheck = Date()
-            }
+            return false
         }
     }
 
     /// Force refresh a single service (ignores cache)
+    @MainActor
     func refreshService(_ service: Service) async {
-        await checkService(service)
+        guard let url = service.url else {
+            service.isHealthy = false
+            service.lastHealthCheck = Date()
+            return
+        }
+
+        let isHealthy = await performHealthCheck(url: url, name: service.name)
+        service.isHealthy = isHealthy
+        service.lastHealthCheck = Date()
     }
 }

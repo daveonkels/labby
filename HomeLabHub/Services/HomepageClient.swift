@@ -10,7 +10,7 @@ struct HomepageClient {
 
     /// Fetches and parses services from Homepage HTML
     func fetchServices() async throws -> [ParsedService] {
-        let (data, _) = try await URLSession.shared.data(from: baseURL)
+        let (data, _) = try await InsecureURLSession.shared.data(from: baseURL)
 
         guard let html = String(data: data, encoding: .utf8) else {
             throw HomepageError.invalidHTML
@@ -309,7 +309,7 @@ struct HomepageClient {
 
     /// Validates connection to Homepage
     func validateConnection() async throws -> Bool {
-        let (_, response) = try await URLSession.shared.data(from: baseURL)
+        let (_, response) = try await InsecureURLSession.shared.data(from: baseURL)
 
         if let httpResponse = response as? HTTPURLResponse {
             return (200...299).contains(httpResponse.statusCode)
