@@ -4,27 +4,48 @@ import SwiftData
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var connections: [HomepageConnection]
+    @Query private var services: [Service]
 
     @State private var showingAddConnection = false
     @State private var showingAddService = false
+    @State private var showingClearDataAlert = false
 
     var body: some View {
         NavigationStack {
             List {
                 // Homepage Connections
                 Section {
-                    ForEach(connections) { connection in
-                        ConnectionRow(connection: connection)
+                    if connections.isEmpty {
+                        HStack(spacing: 12) {
+                            Image(systemName: "link.badge.plus")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 44)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("No Connections")
+                                    .font(.subheadline.weight(.medium))
+                                Text("Add your first Homepage connection")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        ForEach(connections) { connection in
+                            ConnectionRow(connection: connection)
+                        }
+                        .onDelete(perform: deleteConnections)
                     }
-                    .onDelete(perform: deleteConnections)
 
                     Button {
                         showingAddConnection = true
                     } label: {
-                        Label("Add Homepage Connection", systemImage: "plus.circle")
+                        Label("Add Homepage Connection", systemImage: "plus.circle.fill")
+                            .foregroundStyle(Color.accentColor)
                     }
                 } header: {
-                    Text("Homepage Connections")
+                    Label("Homepage Connections", systemImage: "link")
                 } footer: {
                     Text("Connect to your Homepage instance to sync services automatically.")
                 }
@@ -34,31 +55,76 @@ struct SettingsView: View {
                     Button {
                         showingAddService = true
                     } label: {
-                        Label("Add Service Manually", systemImage: "plus.circle")
+                        Label("Add Service Manually", systemImage: "plus.circle.fill")
+                            .foregroundStyle(Color.accentColor)
                     }
                 } header: {
-                    Text("Manual Services")
+                    Label("Manual Services", systemImage: "square.grid.2x2")
                 } footer: {
                     Text("Add services that aren't in your Homepage config.")
                 }
 
+                // Stats
+                if !services.isEmpty {
+                    Section {
+                        LabeledContent {
+                            Text("\(services.count)")
+                                .font(.body.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        } label: {
+                            Label("Total Services", systemImage: "square.grid.2x2")
+                        }
+
+                        LabeledContent {
+                            Text("\(services.filter { $0.isHealthy == true }.count)")
+                                .font(.body.monospacedDigit())
+                                .foregroundStyle(.green)
+                        } label: {
+                            Label("Online", systemImage: "checkmark.circle")
+                        }
+
+                        LabeledContent {
+                            Text("\(services.filter { $0.isManuallyAdded }.count)")
+                                .font(.body.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        } label: {
+                            Label("Manual", systemImage: "hand.raised")
+                        }
+                    } header: {
+                        Label("Statistics", systemImage: "chart.bar")
+                    }
+                }
+
                 // App Info
                 Section {
-                    LabeledContent("Version", value: "1.0.0")
-                    LabeledContent("Build", value: "1")
+                    LabeledContent {
+                        Text("1.0.0")
+                            .foregroundStyle(.secondary)
+                    } label: {
+                        Label("Version", systemImage: "info.circle")
+                    }
+
+                    LabeledContent {
+                        Text("1")
+                            .foregroundStyle(.secondary)
+                    } label: {
+                        Label("Build", systemImage: "hammer")
+                    }
                 } header: {
-                    Text("About")
+                    Label("About", systemImage: "app.badge")
                 }
 
                 // Danger Zone
                 Section {
                     Button(role: .destructive) {
-                        clearAllData()
+                        showingClearDataAlert = true
                     } label: {
                         Label("Clear All Data", systemImage: "trash")
                     }
                 } header: {
-                    Text("Data")
+                    Label("Data", systemImage: "cylinder.split.1x2")
+                } footer: {
+                    Text("This will remove all connections and services. This action cannot be undone.")
                 }
             }
             .navigationTitle("Settings")
@@ -67,6 +133,14 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingAddService) {
                 AddServiceView()
+            }
+            .alert("Clear All Data?", isPresented: $showingClearDataAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Clear", role: .destructive) {
+                    clearAllData()
+                }
+            } message: {
+                Text("This will permanently delete all \(connections.count) connections and \(services.count) services. This action cannot be undone.")
             }
         }
     }
@@ -78,7 +152,6 @@ struct SettingsView: View {
     }
 
     private func clearAllData() {
-        // TODO: Add confirmation dialog
         try? modelContext.delete(model: HomepageConnection.self)
         try? modelContext.delete(model: Service.self)
     }
@@ -88,21 +161,44 @@ struct ConnectionRow: View {
     let connection: HomepageConnection
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(connection.name)
-                .font(.body)
+        HStack(spacing: 12) {
+            // Connection icon
+            Image(systemName: "link.circle.fill")
+                .font(.title2)
+                .foregroundStyle(.blue)
+                .frame(width: 36)
 
-            Text(connection.baseURLString)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(connection.name)
+                    .font(.body.weight(.medium))
 
-            if let lastSync = connection.lastSync {
-                Text("Last synced: \(lastSync, style: .relative) ago")
-                    .font(.caption2)
+                Text(connection.baseURLString)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                if let lastSync = connection.lastSync {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.caption2)
+                        Text("Synced \(lastSync, style: .relative) ago")
+                            .font(.caption2)
+                    }
                     .foregroundStyle(.tertiary)
+                }
             }
+
+            Spacer()
+
+            // Sync status indicator
+            Circle()
+                .fill(connection.lastSync != nil ? Color.green : Color.orange)
+                .frame(width: 8, height: 8)
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(connection.name), \(connection.baseURLString)")
+        .accessibilityValue(connection.lastSync != nil ? "Synced" : "Not synced")
     }
 }
 

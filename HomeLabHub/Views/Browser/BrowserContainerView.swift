@@ -26,6 +26,8 @@ struct BrowserContainerView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
+                        .accessibilityLabel("Browser options")
+                        .accessibilityHint("Opens menu with tab management options")
                     }
                 }
             }
@@ -34,21 +36,56 @@ struct BrowserContainerView: View {
 }
 
 struct EmptyBrowserView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "globe")
-                .font(.system(size: 48))
-                .foregroundStyle(.tertiary)
+    @State private var isAnimating = false
 
+    var body: some View {
+        VStack(spacing: 24) {
+            animatedGlobe
+            descriptionText
+        }
+        .padding()
+        .onAppear {
+            isAnimating = true
+        }
+    }
+
+    private var animatedGlobe: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.accentColor.opacity(0.2), lineWidth: 2)
+                .frame(width: 100, height: 100)
+
+            orbitingDot
+
+            Image(systemName: "globe")
+                .font(.largeTitle)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var orbitingDot: some View {
+        Circle()
+            .fill(Color.accentColor)
+            .frame(width: 8, height: 8)
+            .offset(y: -50)
+            .rotationEffect(.degrees(isAnimating ? 360 : 0))
+            .animation(
+                .linear(duration: 3).repeatForever(autoreverses: false),
+                value: isAnimating
+            )
+    }
+
+    private var descriptionText: some View {
+        VStack(spacing: 8) {
             Text("No Open Tabs")
-                .font(.headline)
+                .font(.title3.weight(.semibold))
 
             Text("Tap a service on the Dashboard to open it here")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal)
         }
-        .padding()
     }
 }
 
@@ -98,44 +135,80 @@ struct TabButton: View {
     let onTap: () -> Void
     let onClose: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var tabTitle: String {
+        tab.title ?? tab.service.name
+    }
+
+    private var backgroundColor: Color {
+        if isActive {
+            return Color.accentColor.opacity(colorScheme == .dark ? 0.2 : 0.12)
+        }
+        return Color.secondary.opacity(0.08)
+    }
+
     var body: some View {
         HStack(spacing: 8) {
-            // Loading indicator or icon
-            if tab.isLoading {
-                ProgressView()
-                    .scaleEffect(0.6)
-                    .frame(width: 12, height: 12)
-            } else if let sfSymbol = tab.service.iconSFSymbol {
-                Image(systemName: sfSymbol)
-                    .font(.caption)
-            }
-
-            Text(tab.title ?? tab.service.name)
-                .font(.caption)
-                .lineLimit(1)
-
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+            leadingIcon
+            titleLabel
+            closeButton
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isActive ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
+        .padding(.vertical, 10)
+        .background(backgroundShape)
+        .overlay(borderOverlay)
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(tabTitle) tab")
+        .accessibilityValue(isActive ? "Selected" : "")
+        .accessibilityHint("Double tap to switch to this tab")
+    }
+
+    @ViewBuilder
+    private var leadingIcon: some View {
+        if tab.isLoading {
+            ProgressView()
+                .scaleEffect(0.6)
+                .frame(width: 16, height: 16)
+        } else if let sfSymbol = tab.service.iconSFSymbol {
+            Image(systemName: sfSymbol)
+                .font(.caption.weight(.medium))
+                .foregroundColor(isActive ? .accentColor : .secondary)
         }
-        .overlay {
-            if isActive {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 1)
-            }
+    }
+
+    private var titleLabel: some View {
+        Text(tabTitle)
+            .font(.caption)
+            .fontWeight(isActive ? .semibold : .regular)
+            .lineLimit(1)
+            .foregroundColor(isActive ? .primary : .secondary)
+    }
+
+    private var closeButton: some View {
+        Button {
+            onClose()
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 20, height: 20)
         }
-        .onTapGesture {
-            onTap()
+        .accessibilityLabel("Close \(tabTitle) tab")
+    }
+
+    private var backgroundShape: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(backgroundColor)
+    }
+
+    @ViewBuilder
+    private var borderOverlay: some View {
+        if isActive {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(0.4), lineWidth: 1.5)
         }
     }
 }

@@ -4,55 +4,131 @@ struct ServiceCard: View {
     let service: Service
 
     @Environment(\.selectedTab) private var selectedTab
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isPressed = false
+    @State private var isHovered = false
 
     private var hasValidURL: Bool {
         guard let url = service.url else { return false }
         return !service.urlString.isEmpty && url.scheme != nil
     }
 
+    private var statusColor: Color {
+        switch service.isHealthy {
+        case .some(true): return .green
+        case .some(false): return .red
+        case .none: return .orange
+        }
+    }
+
+    private var cardGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                statusColor.opacity(0.15),
+                statusColor.opacity(0.05)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     var body: some View {
         Button {
             openService()
         } label: {
-            VStack(spacing: 12) {
-                // Icon
-                ServiceIcon(service: service)
-                    .frame(width: 48, height: 48)
+            VStack(spacing: 16) {
+                // Status glow + Icon
+                ZStack {
+                    // Ambient glow
+                    Circle()
+                        .fill(statusColor.opacity(0.3))
+                        .blur(radius: 12)
+                        .frame(width: 56, height: 56)
 
-                // Name
-                Text(service.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .foregroundStyle(hasValidURL ? .primary : .secondary)
+                    // Icon container
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 56, height: 56)
+                        .overlay {
+                            ServiceIcon(service: service)
+                                .frame(width: 28, height: 28)
+                        }
+                        .overlay {
+                            Circle()
+                                .strokeBorder(statusColor.opacity(0.5), lineWidth: 2)
+                        }
+                }
 
-                // Health indicator or "No URL" badge
-                if hasValidURL {
-                    HealthIndicator(isHealthy: service.isHealthy)
-                } else {
-                    Text("Widget Only")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                // Name + Status
+                VStack(spacing: 6) {
+                    Text(service.name)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(hasValidURL ? .primary : .secondary)
+
+                    // Enhanced status badge
+                    if hasValidURL {
+                        HealthBadge(isHealthy: service.isHealthy)
+                    } else {
+                        Label("Widget", systemImage: "square.grid.2x2")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .padding(.horizontal, 12)
+            .padding(.vertical, 24)
+            .padding(.horizontal, 16)
             .background {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.background)
-                    .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(.quaternary, lineWidth: 1)
+                // Layered background for depth
+                ZStack {
+                    // Base card
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+
+                    // Status gradient overlay
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(cardGradient)
+
+                    // Inner highlight
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(colorScheme == .dark ? 0.1 : 0.5),
+                                    Color.white.opacity(0)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+                .shadow(color: statusColor.opacity(0.2), radius: isHovered ? 16 : 8, y: isHovered ? 8 : 4)
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 12, y: 6)
             }
             .opacity(hasValidURL ? 1.0 : 0.6)
+            .scaleEffect(isHovered ? 1.02 : 1.0)
         }
         .buttonStyle(ServiceCardButtonStyle())
         .disabled(!hasValidURL)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: isPressed)
+        .onHover { hovering in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                isHovered = hovering
+            }
+        }
+        .accessibilityLabel("\(service.name) service")
+        .accessibilityHint(hasValidURL ? "Double tap to open in browser" : "No URL configured")
+        .accessibilityValue(healthAccessibilityValue)
+    }
+
+    private var healthAccessibilityValue: String {
+        switch service.isHealthy {
+        case .some(true): return "Online"
+        case .some(false): return "Offline"
+        case .none: return "Status unknown"
+        }
     }
 
     private func openService() {
@@ -81,13 +157,15 @@ struct ServiceIcon: View {
         Group {
             if let sfSymbol = service.iconSFSymbol {
                 Image(systemName: sfSymbol)
-                    .font(.system(size: 28))
-                    .foregroundStyle(.blue.gradient)
+                    .font(.title2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
             } else if let iconURL = service.iconURL {
                 AsyncImage(url: iconURL) { phase in
                     switch phase {
                     case .empty:
                         ProgressView()
+                            .scaleEffect(0.8)
                     case .success(let image):
                         image
                             .resizable()
@@ -102,52 +180,74 @@ struct ServiceIcon: View {
                 DefaultServiceIcon()
             }
         }
+        .accessibilityHidden(true)
     }
 }
 
 struct DefaultServiceIcon: View {
     var body: some View {
         Image(systemName: "app.fill")
-            .font(.system(size: 28))
-            .foregroundStyle(.gray.gradient)
+            .font(.title2)
+            .fontWeight(.medium)
+            .foregroundStyle(.secondary)
     }
 }
 
-struct HealthIndicator: View {
+struct HealthBadge: View {
     let isHealthy: Bool?
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 6, height: 6)
-
-            Text(statusText)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-    }
 
     private var statusColor: Color {
         switch isHealthy {
-        case .some(true):
-            return .green
-        case .some(false):
-            return .red
-        case .none:
-            return .gray
+        case .some(true): return .green
+        case .some(false): return .red
+        case .none: return .orange
         }
     }
 
     private var statusText: String {
         switch isHealthy {
-        case .some(true):
-            return "Online"
-        case .some(false):
-            return "Offline"
-        case .none:
-            return "Unknown"
+        case .some(true): return "Online"
+        case .some(false): return "Offline"
+        case .none: return "Checking"
         }
+    }
+
+    private var statusIcon: String {
+        switch isHealthy {
+        case .some(true): return "checkmark.circle.fill"
+        case .some(false): return "xmark.circle.fill"
+        case .none: return "questionmark.circle.fill"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: statusIcon)
+                .font(.caption2)
+                .foregroundStyle(statusColor)
+                .symbolEffect(.pulse, options: .repeating, isActive: isHealthy == nil)
+
+            Text(statusText)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(statusColor)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background {
+            Capsule()
+                .fill(statusColor.opacity(0.15))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Status: \(statusText)")
+    }
+}
+
+// Legacy support
+struct HealthIndicator: View {
+    let isHealthy: Bool?
+
+    var body: some View {
+        HealthBadge(isHealthy: isHealthy)
     }
 }
 
