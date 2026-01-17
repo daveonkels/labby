@@ -8,6 +8,28 @@ enum BackgroundType: String, Codable {
     case aiGenerated   // ImagePlayground generated
 }
 
+enum ColorSchemePreference: String, Codable, CaseIterable {
+    case system
+    case light
+    case dark
+
+    var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
 enum GradientPreset: String, Codable, CaseIterable {
     case `default`
     case sunset
@@ -84,6 +106,7 @@ final class AppSettings {
     var backgroundType: BackgroundType
     var backgroundImageData: Data?
     var gradientPresetRaw: String = GradientPreset.default.rawValue
+    var colorSchemePreferenceRaw: String = ColorSchemePreference.system.rawValue
     var createdAt: Date
 
     var gradientPreset: GradientPreset {
@@ -91,17 +114,24 @@ final class AppSettings {
         set { gradientPresetRaw = newValue.rawValue }
     }
 
+    var colorSchemePreference: ColorSchemePreference {
+        get { ColorSchemePreference(rawValue: colorSchemePreferenceRaw) ?? .system }
+        set { colorSchemePreferenceRaw = newValue.rawValue }
+    }
+
     init(
         id: UUID = UUID(),
         backgroundType: BackgroundType = .gradient,
         backgroundImageData: Data? = nil,
         gradientPreset: GradientPreset = .default,
+        colorSchemePreference: ColorSchemePreference = .system,
         createdAt: Date = Date()
     ) {
         self.id = id
         self.backgroundType = backgroundType
         self.backgroundImageData = backgroundImageData
         self.gradientPresetRaw = gradientPreset.rawValue
+        self.colorSchemePreferenceRaw = colorSchemePreference.rawValue
         self.createdAt = createdAt
     }
 

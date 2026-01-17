@@ -16,8 +16,13 @@ extension EnvironmentValues {
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var connections: [HomepageConnection]
+    @Query private var allSettings: [AppSettings]
 
     @State private var selectedTab: Tab = .dashboard
+
+    private var colorSchemePreference: ColorScheme? {
+        allSettings.first?.colorSchemePreference.colorScheme
+    }
 
     enum Tab: Hashable {
         case dashboard
@@ -35,6 +40,7 @@ struct ContentView: View {
                     .environment(\.selectedTab, $selectedTab)
             }
         }
+        .preferredColorScheme(colorSchemePreference)
     }
 }
 

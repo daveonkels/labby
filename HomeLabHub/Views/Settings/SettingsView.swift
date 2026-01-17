@@ -5,10 +5,21 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var connections: [HomepageConnection]
     @Query private var services: [Service]
+    @Query private var allSettings: [AppSettings]
 
     @State private var showingAddConnection = false
     @State private var showingAddService = false
     @State private var showingClearDataAlert = false
+
+    private var settings: AppSettings {
+        if let existing = allSettings.first {
+            return existing
+        }
+        let newSettings = AppSettings()
+        modelContext.insert(newSettings)
+        try? modelContext.save()
+        return newSettings
+    }
 
     var body: some View {
         NavigationStack {
@@ -66,6 +77,20 @@ struct SettingsView: View {
 
                 // Appearance
                 Section {
+                    Picker(selection: Binding(
+                        get: { settings.colorSchemePreference },
+                        set: { newValue in
+                            settings.colorSchemePreference = newValue
+                            try? modelContext.save()
+                        }
+                    )) {
+                        ForEach(ColorSchemePreference.allCases, id: \.self) { preference in
+                            Text(preference.displayName).tag(preference)
+                        }
+                    } label: {
+                        Label("Appearance", systemImage: "circle.lefthalf.filled")
+                    }
+
                     NavigationLink {
                         BackgroundSettingsView()
                     } label: {
