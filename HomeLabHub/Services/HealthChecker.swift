@@ -4,7 +4,7 @@ import SwiftData
 actor HealthChecker {
     static let shared = HealthChecker()
 
-    private var isRunning = false
+    private var monitoringTask: Task<Void, Never>?
     private let checkInterval: TimeInterval = 60 // seconds between full checks
     private let cacheInterval: TimeInterval = 55 // skip if checked within this time
     private let maxConcurrentChecks = 5
@@ -19,26 +19,28 @@ actor HealthChecker {
 
     private init() {}
 
-    /// Starts background health monitoring. Safe to call multiple times.
-    func startMonitoring(modelContext: ModelContext) async {
-        // Already running - don't start another loop
-        guard !isRunning else {
-            print("🏥 [Health] Monitoring already running, skipping start")
-            return
+    /// Starts background health monitoring. Restarts with new context if called again.
+    func startMonitoring(modelContext: ModelContext) {
+        // Cancel existing monitoring task if running
+        if monitoringTask != nil {
+            print("🏥 [Health] Restarting monitoring with fresh context")
+            monitoringTask?.cancel()
         }
 
-        isRunning = true
         print("🏥 [Health] Starting health monitoring (interval: \(Int(checkInterval))s)")
 
-        while isRunning {
-            await checkAllServices(modelContext: modelContext)
-            try? await Task.sleep(for: .seconds(checkInterval))
+        monitoringTask = Task { @MainActor in
+            while !Task.isCancelled {
+                await HealthChecker.shared.checkAllServices(modelContext: modelContext)
+                try? await Task.sleep(for: .seconds(checkInterval))
+            }
         }
     }
 
     func stopMonitoring() {
         print("🏥 [Health] Stopping health monitoring")
-        isRunning = false
+        monitoringTask?.cancel()
+        monitoringTask = nil
     }
 
     /// Checks all services, respecting cache interval
