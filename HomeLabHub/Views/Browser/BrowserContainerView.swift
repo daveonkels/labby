@@ -33,11 +33,10 @@ struct SwipeableBrowserView: View {
                 ForEach(Array(tabManager.tabs.enumerated()), id: \.element.id) { index, tab in
                     FullScreenWebView(tab: tab, onTap: showToolbar)
                         .tag(index)
-                        .ignoresSafeArea(edges: .bottom)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .ignoresSafeArea(edges: .bottom)
+            .ignoresSafeArea(.all) // Extend under status bar for seamless look
             .onChange(of: selectedIndex) { _, newIndex in
                 syncActiveTab(to: newIndex)
             }
@@ -121,7 +120,7 @@ struct FullScreenWebView: View {
 
     var body: some View {
         WebViewRepresentable(tab: tab)
-            .ignoresSafeArea(edges: .bottom)
+            .ignoresSafeArea(.all) // Extend under status bar and home indicator
             .contentShape(Rectangle())
             .onTapGesture {
                 onTap()
