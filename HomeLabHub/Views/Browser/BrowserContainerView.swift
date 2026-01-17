@@ -45,8 +45,10 @@ struct SwipeableBrowserView: View {
                 scheduleToolbarHide()
             }
 
-            // Floating toolbar overlay
-            VStack(spacing: 12) {
+            // Floating toolbar overlay (auto-hides)
+            VStack {
+                Spacer()
+
                 FloatingBrowserToolbar(
                     tab: currentTab,
                     tabCount: tabManager.tabs.count,
@@ -54,17 +56,17 @@ struct SwipeableBrowserView: View {
                     onClose: closeCurrentTab,
                     onCloseAll: { tabManager.closeAllTabs() }
                 )
+                .padding(.bottom, 60) // Space above page indicator
+                .opacity(toolbarVisible ? 1 : 0)
+                .animation(.easeInOut(duration: 0.25), value: toolbarVisible)
 
-                // Custom page indicator
-                TabPageIndicator(
+                // Page indicator - always visible, just above tab bar
+                PageDots(
                     count: tabManager.tabs.count,
-                    currentIndex: selectedIndex,
-                    tabs: tabManager.tabs
+                    currentIndex: selectedIndex
                 )
+                .padding(.bottom, 4)
             }
-            .padding(.bottom, 8)
-            .opacity(toolbarVisible ? 1 : 0)
-            .animation(.easeInOut(duration: 0.25), value: toolbarVisible)
         }
     }
 
@@ -227,41 +229,23 @@ struct FloatingBrowserToolbar: View {
     }
 }
 
-// MARK: - Tab Page Indicator
+// MARK: - Page Dots (Minimal indicator just above tab bar)
 
-struct TabPageIndicator: View {
+struct PageDots: View {
     let count: Int
     let currentIndex: Int
-    let tabs: [BrowserTab]
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(0..<count, id: \.self) { index in
-                indicatorDot(for: index)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-    }
-
-    private func indicatorDot(for index: Int) -> some View {
-        let isActive = index == currentIndex
-        let tab = index < tabs.count ? tabs[index] : nil
-
-        return Group {
-            if let icon = tab?.service.iconSFSymbol, isActive {
-                Image(systemName: icon)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundColor(.accentColor)
-            } else {
                 Circle()
-                    .fill(isActive ? Color.accentColor : Color.secondary.opacity(0.4))
-                    .frame(width: isActive ? 8 : 6, height: isActive ? 8 : 6)
+                    .fill(index == currentIndex ? Color.primary : Color.primary.opacity(0.3))
+                    .frame(width: index == currentIndex ? 7 : 5, height: index == currentIndex ? 7 : 5)
+                    .animation(.easeInOut(duration: 0.2), value: currentIndex)
             }
         }
-        .animation(.spring(response: 0.3), value: currentIndex)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 }
 
