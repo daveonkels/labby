@@ -226,41 +226,61 @@ struct StatusPill: View {
 
 struct DashboardBackground: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Query private var allSettings: [AppSettings]
+
+    private var settings: AppSettings? {
+        allSettings.first
+    }
 
     var body: some View {
         ZStack {
+            // Base background color
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
 
-            // Subtle gradient orbs
-            GeometryReader { geo in
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.green.opacity(0.15), Color.clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: geo.size.width * 0.4
-                        )
-                    )
-                    .frame(width: geo.size.width * 0.8)
-                    .position(x: geo.size.width * 0.9, y: geo.size.height * 0.1)
-                    .blur(radius: 60)
+            // Custom image background if set
+            if let imageData = settings?.backgroundImage,
+               let uiImage = UIImage(data: imageData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .ignoresSafeArea()
 
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.blue.opacity(0.1), Color.clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: geo.size.width * 0.3
+                // Overlay for readability
+                Color(.systemGroupedBackground)
+                    .opacity(colorScheme == .dark ? 0.7 : 0.75)
+                    .ignoresSafeArea()
+            } else {
+                // Default subtle gradient orbs
+                GeometryReader { geo in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.green.opacity(0.15), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geo.size.width * 0.4
+                            )
                         )
-                    )
-                    .frame(width: geo.size.width * 0.6)
-                    .position(x: geo.size.width * 0.1, y: geo.size.height * 0.8)
-                    .blur(radius: 50)
+                        .frame(width: geo.size.width * 0.8)
+                        .position(x: geo.size.width * 0.9, y: geo.size.height * 0.1)
+                        .blur(radius: 60)
+
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.blue.opacity(0.1), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geo.size.width * 0.3
+                            )
+                        )
+                        .frame(width: geo.size.width * 0.6)
+                        .position(x: geo.size.width * 0.1, y: geo.size.height * 0.8)
+                        .blur(radius: 50)
+                }
+                .ignoresSafeArea()
             }
-            .ignoresSafeArea()
         }
     }
 }
@@ -431,5 +451,5 @@ struct ServiceGridView: View {
 
 #Preview {
     DashboardView()
-        .modelContainer(for: [Service.self, HomepageConnection.self], inMemory: true)
+        .modelContainer(for: [Service.self, HomepageConnection.self, AppSettings.self], inMemory: true)
 }

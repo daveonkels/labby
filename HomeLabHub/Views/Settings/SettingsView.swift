@@ -64,6 +64,17 @@ struct SettingsView: View {
                     Text("Add services that aren't in your Homepage config.")
                 }
 
+                // Appearance
+                Section {
+                    NavigationLink {
+                        BackgroundSettingsView()
+                    } label: {
+                        Label("Dashboard Background", systemImage: "photo.artframe")
+                    }
+                } header: {
+                    Label("Appearance", systemImage: "paintbrush")
+                }
+
                 // Stats
                 if !services.isEmpty {
                     Section {
@@ -204,5 +215,5 @@ struct ConnectionRow: View {
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [Service.self, HomepageConnection.self], inMemory: true)
+        .modelContainer(for: [Service.self, HomepageConnection.self, AppSettings.self], inMemory: true)
 }

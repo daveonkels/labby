@@ -6,7 +6,8 @@ struct HomeLabHubApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Service.self,
-            HomepageConnection.self
+            HomepageConnection.self,
+            AppSettings.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

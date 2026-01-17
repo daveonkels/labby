@@ -280,5 +280,5 @@ struct OnboardingBackground: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Service.self, HomepageConnection.self], inMemory: true)
+        .modelContainer(for: [Service.self, HomepageConnection.self, AppSettings.self], inMemory: true)
 }
