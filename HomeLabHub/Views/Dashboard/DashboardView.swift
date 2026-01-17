@@ -1,6 +1,11 @@
 import SwiftUI
 import SwiftData
 
+enum HealthFilter: Equatable {
+    case online
+    case offline
+}
+
 struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
@@ -8,13 +13,31 @@ struct DashboardView: View {
 
     @State private var searchText = ""
     @State private var isRefreshing = false
+    @State private var healthFilter: HealthFilter? = nil
+
+    private var filteredServices: [Service] {
+        var result = services
+
+        // Apply search filter
+        if !searchText.isEmpty {
+            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        }
+
+        // Apply health filter
+        if let filter = healthFilter {
+            switch filter {
+            case .online:
+                result = result.filter { $0.isHealthy == true }
+            case .offline:
+                result = result.filter { $0.isHealthy == false }
+            }
+        }
+
+        return result
+    }
 
     private var groupedServices: [(String, [Service])] {
-        let filtered = searchText.isEmpty
-            ? services
-            : services.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-
-        let grouped = Dictionary(grouping: filtered) { $0.category ?? "Other" }
+        let grouped = Dictionary(grouping: filteredServices) { $0.category ?? "Other" }
         return grouped.sorted { $0.key < $1.key }
     }
 
@@ -32,24 +55,28 @@ struct DashboardView: View {
                     if services.isEmpty {
                         EmptyDashboardView()
                     } else {
-                        // Status summary card
+                        // Status summary card with tappable filters
                         StatusSummaryCard(
-                            total: services.count,
                             online: healthStats.online,
                             offline: healthStats.offline,
-                            unknown: healthStats.unknown
+                            unknown: healthStats.unknown,
+                            selectedFilter: $healthFilter
                         )
-                        .padding(.horizontal, 4)
 
-                        ForEach(groupedServices, id: \.0) { category, categoryServices in
-                            Section {
-                                ServiceGridView(services: categoryServices)
-                            } header: {
-                                CategoryHeader(
-                                    title: category,
-                                    count: categoryServices.count,
-                                    onlineCount: categoryServices.filter { $0.isHealthy == true }.count
-                                )
+                        // Show flat grid when filtering, grouped otherwise
+                        if healthFilter != nil {
+                            ServiceGridView(services: filteredServices)
+                        } else {
+                            ForEach(groupedServices, id: \.0) { category, categoryServices in
+                                Section {
+                                    ServiceGridView(services: categoryServices)
+                                } header: {
+                                    CategoryHeader(
+                                        title: category,
+                                        count: categoryServices.count,
+                                        onlineCount: categoryServices.filter { $0.isHealthy == true }.count
+                                    )
+                                }
                             }
                         }
                     }
@@ -64,12 +91,18 @@ struct DashboardView: View {
             .refreshable {
                 await refreshServices()
             }
+            .task {
+                // Start health monitoring when dashboard appears
+                await HealthChecker.shared.startMonitoring(modelContext: modelContext)
+            }
         }
     }
 
     private func refreshServices() async {
         isRefreshing = true
         await SyncManager.shared.syncAllConnections(modelContext: modelContext)
+        // Run health checks after sync
+        await HealthChecker.shared.checkAllServices(modelContext: modelContext)
         isRefreshing = false
     }
 }
@@ -77,80 +110,94 @@ struct DashboardView: View {
 // MARK: - Status Summary Card
 
 struct StatusSummaryCard: View {
-    let total: Int
     let online: Int
     let offline: Int
     let unknown: Int
+    @Binding var selectedFilter: HealthFilter?
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 12) {
             StatusPill(
                 icon: "checkmark.circle.fill",
                 count: online,
-                label: "Online",
-                color: .green
-            )
-
-            Divider()
-                .frame(height: 32)
-                .padding(.horizontal)
+                color: .green,
+                accessibilityLabel: "Online",
+                isSelected: selectedFilter == .online
+            ) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedFilter = selectedFilter == .online ? nil : .online
+                }
+            }
 
             StatusPill(
                 icon: "xmark.circle.fill",
                 count: offline,
-                label: "Offline",
-                color: .red
-            )
+                color: .red,
+                accessibilityLabel: "Offline",
+                isSelected: selectedFilter == .offline
+            ) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedFilter = selectedFilter == .offline ? nil : .offline
+                }
+            }
 
-            Divider()
-                .frame(height: 32)
-                .padding(.horizontal)
-
-            StatusPill(
-                icon: "questionmark.circle.fill",
-                count: unknown,
-                label: "Unknown",
-                color: .orange
-            )
+            // Only show Checking if there are any
+            if unknown > 0 {
+                StatusPill(
+                    icon: "questionmark.circle.fill",
+                    count: unknown,
+                    color: .orange,
+                    accessibilityLabel: "Checking",
+                    isSelected: false
+                ) {}
+                .disabled(true)
+            }
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 20)
-        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
         .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 8, y: 4)
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.2 : 0.06), radius: 4, y: 2)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Service status: \(online) online, \(offline) offline, \(unknown) unknown")
+        .accessibilityElement(children: .contain)
     }
 }
 
 struct StatusPill: View {
     let icon: String
     let count: Int
-    let label: String
     let color: Color
+    let accessibilityLabel: String
+    var isSelected: Bool = false
+    var action: () -> Void = {}
 
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 6) {
+        Button(action: action) {
+            HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.caption)
                     .foregroundStyle(color)
 
                 Text("\(count)")
-                    .font(.title3.weight(.bold).monospacedDigit())
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.primary)
             }
-
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(color.opacity(0.15))
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(accessibilityLabel): \(count)")
+        .accessibilityHint(isSelected ? "Tap to show all services" : "Tap to filter to \(accessibilityLabel.lowercased()) services")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

@@ -5,31 +5,10 @@ struct ServiceCard: View {
 
     @Environment(\.selectedTab) private var selectedTab
     @Environment(\.colorScheme) private var colorScheme
-    @State private var isPressed = false
-    @State private var isHovered = false
 
     private var hasValidURL: Bool {
         guard let url = service.url else { return false }
         return !service.urlString.isEmpty && url.scheme != nil
-    }
-
-    private var statusColor: Color {
-        switch service.isHealthy {
-        case .some(true): return .green
-        case .some(false): return .red
-        case .none: return .orange
-        }
-    }
-
-    private var cardGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                statusColor.opacity(0.15),
-                statusColor.opacity(0.05)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
     }
 
     var body: some View {
@@ -37,27 +16,18 @@ struct ServiceCard: View {
             openService()
         } label: {
             VStack(spacing: 16) {
-                // Status glow + Icon
-                ZStack {
-                    // Ambient glow
-                    Circle()
-                        .fill(statusColor.opacity(0.3))
-                        .blur(radius: 12)
-                        .frame(width: 56, height: 56)
-
-                    // Icon container
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 56, height: 56)
-                        .overlay {
-                            ServiceIcon(service: service)
-                                .frame(width: 28, height: 28)
-                        }
-                        .overlay {
-                            Circle()
-                                .strokeBorder(statusColor.opacity(0.5), lineWidth: 2)
-                        }
-                }
+                // Icon container
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 56, height: 56)
+                    .overlay {
+                        ServiceIcon(service: service)
+                            .frame(width: 28, height: 28)
+                    }
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
+                    }
 
                 // Name + Status
                 VStack(spacing: 6) {
@@ -66,7 +36,7 @@ struct ServiceCard: View {
                         .lineLimit(1)
                         .foregroundStyle(hasValidURL ? .primary : .secondary)
 
-                    // Enhanced status badge
+                    // Status badge - only colored element
                     if hasValidURL {
                         HealthBadge(isHealthy: service.isHealthy)
                     } else {
@@ -80,15 +50,10 @@ struct ServiceCard: View {
             .padding(.vertical, 24)
             .padding(.horizontal, 16)
             .background {
-                // Layered background for depth
                 ZStack {
                     // Base card
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .fill(.ultraThinMaterial)
-
-                    // Status gradient overlay
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(cardGradient)
 
                     // Inner highlight
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -104,20 +69,12 @@ struct ServiceCard: View {
                             lineWidth: 1
                         )
                 }
-                .shadow(color: statusColor.opacity(0.2), radius: isHovered ? 16 : 8, y: isHovered ? 8 : 4)
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 12, y: 6)
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 8, y: 4)
             }
             .opacity(hasValidURL ? 1.0 : 0.6)
-            .scaleEffect(isHovered ? 1.02 : 1.0)
         }
         .buttonStyle(ServiceCardButtonStyle())
         .disabled(!hasValidURL)
-        .sensoryFeedback(.impact(flexibility: .soft), trigger: isPressed)
-        .onHover { hovering in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                isHovered = hovering
-            }
-        }
         .accessibilityLabel("\(service.name) service")
         .accessibilityHint(hasValidURL ? "Double tap to open in browser" : "No URL configured")
         .accessibilityValue(healthAccessibilityValue)
@@ -133,10 +90,6 @@ struct ServiceCard: View {
 
     private func openService() {
         guard hasValidURL else { return }
-
-        isPressed = true
-
-        // Open tab and switch to browser
         let _ = TabManager.shared.openService(service)
         selectedTab.wrappedValue = .browser
     }

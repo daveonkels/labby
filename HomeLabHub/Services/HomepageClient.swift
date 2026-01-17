@@ -253,8 +253,9 @@ struct HomepageClient {
                         // Simple Icons or Material Design Icons - skip for now
                         iconURL = nil
                     } else {
-                        // Dashboard icon - use CDN URL
-                        iconURL = "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/\(icon).png"
+                        // Dashboard icon - use CDN URL with normalized name
+                        let normalizedIcon = normalizeIconName(icon)
+                        iconURL = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/\(normalizedIcon).png"
                     }
                 }
 
@@ -275,6 +276,18 @@ struct HomepageClient {
 
         print("📄 [Homepage] Total parsed from __NEXT_DATA__: \(services.count)")
         return services
+    }
+
+    /// Normalizes icon name to match dashboard-icons repository naming convention
+    /// - Parameter name: The icon name from Homepage config
+    /// - Returns: Normalized icon name (lowercase, kebab-case, no extension)
+    private func normalizeIconName(_ name: String) -> String {
+        return name
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: ".png", with: "")
+            .replacingOccurrences(of: ".svg", with: "")
+            .replacingOccurrences(of: ".webp", with: "")
     }
 
     private func resolveURL(_ urlString: String) -> String {

@@ -68,11 +68,21 @@ final class SyncManager {
             }
 
             // Remove services that no longer exist in Homepage
-            let fetchedIds = Set(parsedServices.map { $0.id })
-            for existing in existingServices {
-                if let homepageId = existing.homepageServiceId, !fetchedIds.contains(homepageId) {
-                    modelContext.delete(existing)
+            // Safety: Only remove if we actually got services back (prevents accidental mass deletion)
+            if !parsedServices.isEmpty {
+                let fetchedIds = Set(parsedServices.map { $0.id })
+                var deletedCount = 0
+                for existing in existingServices {
+                    if let homepageId = existing.homepageServiceId, !fetchedIds.contains(homepageId) {
+                        modelContext.delete(existing)
+                        deletedCount += 1
+                    }
                 }
+                if deletedCount > 0 {
+                    print("🔄 [Sync] Removed \(deletedCount) services no longer in Homepage")
+                }
+            } else if !existingServices.isEmpty {
+                print("⚠️ [Sync] Skipping service removal - fetch returned empty (possible error)")
             }
 
             // Update connection sync timestamp
