@@ -121,11 +121,12 @@ actor HealthChecker {
             let (_, response) = try await Self.healthCheckSession.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
-                // If HEAD returns certain error codes, fall back to GET
-                // Some servers don't properly support HEAD requests:
+                // If HEAD returns any 5xx error, fall back to GET
+                // Many servers/reverse proxies don't properly support HEAD:
                 // - 501: Not Implemented (e.g., Transmission)
+                // - 502: Bad Gateway (e.g., NZBGet behind reverse proxy)
                 // - 503: Service Unavailable (e.g., Blue Iris)
-                if httpResponse.statusCode == 501 || httpResponse.statusCode == 503 {
+                if (500...599).contains(httpResponse.statusCode) {
                     print("🏥 [Health] \(name): HEAD returned \(httpResponse.statusCode), trying GET")
                     return await performGetHealthCheck(url: url, name: name)
                 }
