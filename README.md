@@ -5,7 +5,10 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 ## Features
 
 - **Homepage Integration**: Syncs services from your Homepage instance by parsing the Next.js `__NEXT_DATA__` payload
-- **Native Dashboard**: Services displayed in a grid with category grouping
+- **Native Dashboard**: Services displayed in a grid with category grouping and health status indicators
+- **Health Monitoring**: Background polling shows online/offline status for each service with visual indicators
+- **Status Filtering**: Filter dashboard by online/offline status; filter floats to header when active
+- **Self-Signed SSL Support**: Accepts self-signed certificates common in homelab environments
 - **Embedded Browser**: WKWebView-based tabs with persistent cookies/sessions
 - **Tab Persistence**: All open tabs stay in memory—switch between them without reloading
 - **Manual Services**: Add services that aren't in your Homepage config
@@ -68,7 +71,8 @@ HomeLabHub/
 ├── Services/
 │   ├── HomepageClient.swift     # Fetches & parses Homepage HTML
 │   ├── SyncManager.swift        # Orchestrates sync, updates SwiftData
-│   └── HealthChecker.swift      # Service health polling (not yet wired up)
+│   ├── HealthChecker.swift      # Background service health monitoring
+│   └── InsecureURLSession.swift # SSL bypass for self-signed certificates
 └── Utilities/
     └── HapticManager.swift      # Haptic feedback helpers
 ```
@@ -90,10 +94,22 @@ HomeLabHub/
 - Handles create/update/delete of services
 - Preserves manually-added services during sync
 
+**HealthChecker** (`HealthChecker.swift`)
+- Actor-based singleton for thread-safe health monitoring
+- Polls services every 60 seconds with limited concurrency
+- Updates service health status (online/offline) in SwiftData
+- Uses `InsecureURLSession` for self-signed certificate support
+
+**InsecureURLSession** (`InsecureURLSession.swift`)
+- Shared URLSession that bypasses SSL certificate validation
+- Essential for homelab environments with self-signed certs
+- Used by HealthChecker, HomepageClient, and ConnectionSetupView
+
 ## Network Configuration
 
-The app allows arbitrary network loads for local homelab access:
+The app is configured for homelab environments:
 
+**App Transport Security** (Info.plist):
 ```xml
 <key>NSAppTransportSecurity</key>
 <dict>
@@ -104,13 +120,17 @@ The app allows arbitrary network loads for local homelab access:
 </dict>
 ```
 
+**Self-Signed Certificates**: All network requests use `InsecureURLSession` which implements a custom `URLSessionDelegate` to accept any server certificate. This allows connecting to services using self-signed SSL certificates without certificate errors.
+
 ## Usage
 
 1. **First Launch**: Tap "Connect to Homepage" and enter your Homepage URL
 2. **Sync**: Services are automatically synced; pull-to-refresh on Dashboard to re-sync
-3. **Open Service**: Tap any service card to open it in the embedded browser
-4. **Switch Tabs**: Use the tab bar at the top of the Browser view
-5. **Manual Services**: Settings → "Add Service Manually"
+3. **Health Status**: Services show online (green) or offline (red) indicators updated every 60 seconds
+4. **Filter Services**: Scroll to the bottom and tap the status filter to show only online or offline services
+5. **Open Service**: Tap any service card to open it in the embedded browser
+6. **Switch Tabs**: Use the tab bar at the top of the Browser view
+7. **Manual Services**: Settings → "Add Service Manually"
 
 ## License
 
