@@ -8,8 +8,8 @@ struct HomepageClient {
         self.baseURL = baseURL
     }
 
-    /// Fetches and parses services from Homepage HTML
-    func fetchServices() async throws -> [ParsedService] {
+    /// Fetches and parses all data from Homepage HTML
+    func fetchAll() async throws -> (services: [ParsedService], bookmarks: [ParsedBookmark]) {
         let (data, _) = try await InsecureURLSession.shared.data(from: baseURL)
 
         guard let html = String(data: data, encoding: .utf8) else {
@@ -19,10 +19,16 @@ struct HomepageClient {
         return try parseHTML(html)
     }
 
-    /// Parses Homepage HTML to extract services
-    private func parseHTML(_ html: String) throws -> [ParsedService] {
+    /// Fetches and parses services from Homepage HTML (legacy, for backward compatibility)
+    func fetchServices() async throws -> [ParsedService] {
+        return try await fetchAll().services
+    }
+
+    /// Parses Homepage HTML to extract services and bookmarks
+    private func parseHTML(_ html: String) throws -> (services: [ParsedService], bookmarks: [ParsedBookmark]) {
         let document = try SwiftSoup.parse(html)
         var services: [ParsedService] = []
+        let bookmarks: [ParsedBookmark] = []
 
         // Debug: Print first 500 chars of HTML to see structure
         print("📄 [Homepage] HTML length: \(html.count) characters")
@@ -33,9 +39,9 @@ struct HomepageClient {
             print("📄 [Homepage] Found __NEXT_DATA__, length: \(jsonString.count)")
 
             if let data = jsonString.data(using: .utf8) {
-                let parsedFromNextData = try parseNextData(data)
-                if !parsedFromNextData.isEmpty {
-                    return parsedFromNextData
+                let (parsedServices, parsedBookmarks) = try parseNextData(data)
+                if !parsedServices.isEmpty || !parsedBookmarks.isEmpty {
+                    return (parsedServices, parsedBookmarks)
                 }
             }
         } else {
@@ -123,7 +129,7 @@ struct HomepageClient {
             print("📄 [Homepage]   - \(service.name): \(service.href ?? "no URL")")
         }
 
-        return services
+        return (services, bookmarks)
     }
 
     private func extractServiceName(from element: Element) throws -> String {
@@ -189,15 +195,16 @@ struct HomepageClient {
         return nil
     }
 
-    /// Parse Next.js __NEXT_DATA__ JSON to extract services
-    private func parseNextData(_ data: Data) throws -> [ParsedService] {
+    /// Parse Next.js __NEXT_DATA__ JSON to extract services and bookmarks
+    private func parseNextData(_ data: Data) throws -> (services: [ParsedService], bookmarks: [ParsedBookmark]) {
         var services: [ParsedService] = []
+        var bookmarks: [ParsedBookmark] = []
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let props = json["props"] as? [String: Any],
               let pageProps = props["pageProps"] as? [String: Any] else {
             print("📄 [Homepage] Could not parse __NEXT_DATA__ structure")
-            return []
+            return ([], [])
         }
 
         print("📄 [Homepage] pageProps keys: \(pageProps.keys)")
@@ -206,25 +213,65 @@ struct HomepageClient {
         // Structure: [ { name: "GroupName", services: [ { name, href, icon, ... } ] } ]
 
         var serviceGroups: [[String: Any]]? = nil
+        var bookmarkGroups: [[String: Any]]? = nil
 
-        // Try fallback["/api/services"] first (SWR pattern)
+        // Try fallback first (SWR pattern)
         if let fallback = pageProps["fallback"] as? [String: Any] {
             print("📄 [Homepage] fallback keys: \(fallback.keys)")
             if let apiServices = fallback["/api/services"] as? [[String: Any]] {
                 serviceGroups = apiServices
             }
+            if let apiBookmarks = fallback["/api/bookmarks"] as? [[String: Any]] {
+                bookmarkGroups = apiBookmarks
+            }
         }
 
-        // Fallback to direct services key
+        // Fallback to direct keys
         if serviceGroups == nil {
             if let s = pageProps["services"] as? [[String: Any]] {
                 serviceGroups = s
             }
         }
+        if bookmarkGroups == nil {
+            if let b = pageProps["bookmarks"] as? [[String: Any]] {
+                bookmarkGroups = b
+            }
+        }
+
+        // Parse bookmarks
+        if let groups = bookmarkGroups {
+            print("📄 [Homepage] Found \(groups.count) bookmark groups")
+            var bookmarkSortOrder = 0
+
+            for groupDict in groups {
+                let groupName = groupDict["name"] as? String ?? "Bookmarks"
+                guard let bookmarksList = groupDict["bookmarks"] as? [[String: Any]] else { continue }
+
+                print("📄 [Homepage] Bookmark group '\(groupName)' has \(bookmarksList.count) bookmarks")
+
+                for bookmarkInfo in bookmarksList {
+                    let name = bookmarkInfo["name"] as? String ?? "Unknown"
+                    guard let href = bookmarkInfo["href"] as? String else { continue }
+                    let abbr = bookmarkInfo["abbr"] as? String
+
+                    let bookmark = ParsedBookmark(
+                        id: "\(groupName)-\(name)",
+                        name: name,
+                        abbreviation: abbr,
+                        href: href,
+                        category: groupName,
+                        sortOrder: bookmarkSortOrder
+                    )
+                    bookmarks.append(bookmark)
+                    bookmarkSortOrder += 1
+                    print("📄 [Homepage]   Parsed bookmark: \(name)")
+                }
+            }
+        }
 
         guard let groups = serviceGroups else {
             print("📄 [Homepage] No services found in pageProps")
-            return []
+            return ([], bookmarks)
         }
 
         print("📄 [Homepage] Found \(groups.count) service groups")
@@ -290,8 +337,8 @@ struct HomepageClient {
             }
         }
 
-        print("📄 [Homepage] Total parsed from __NEXT_DATA__: \(services.count)")
-        return services
+        print("📄 [Homepage] Total parsed from __NEXT_DATA__: \(services.count) services, \(bookmarks.count) bookmarks")
+        return (services, bookmarks)
     }
 
     /// Normalizes icon name to match dashboard-icons repository naming convention
@@ -343,6 +390,15 @@ struct ParsedService: Identifiable {
     let href: String?
     let iconURL: String?
     let description: String?
+    let category: String?
+    let sortOrder: Int
+}
+
+struct ParsedBookmark: Identifiable {
+    let id: String
+    let name: String
+    let abbreviation: String?
+    let href: String
     let category: String?
     let sortOrder: Int
 }

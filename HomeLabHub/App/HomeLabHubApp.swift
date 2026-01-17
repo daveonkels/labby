@@ -7,7 +7,8 @@ struct HomeLabHubApp: App {
         let schema = Schema([
             Service.self,
             HomepageConnection.self,
-            AppSettings.self
+            AppSettings.self,
+            Bookmark.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

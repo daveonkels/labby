@@ -10,6 +10,7 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \Service.sortOrder) private var services: [Service]
+    @Query(sort: \Bookmark.sortOrder) private var bookmarks: [Bookmark]
     @Query private var connections: [HomepageConnection]
 
     @Binding var searchText: String
@@ -23,6 +24,12 @@ struct DashboardView: View {
     /// Dashboard title from the connection name, or "Dashboard" as fallback
     private var dashboardTitle: String {
         connections.first?.name ?? "Dashboard"
+    }
+
+    /// Bookmarks grouped by category
+    private var groupedBookmarks: [(String, [Bookmark])] {
+        let grouped = Dictionary(grouping: bookmarks) { $0.category ?? "Bookmarks" }
+        return grouped.sorted { $0.key < $1.key }
     }
 
     init(searchText: Binding<String> = .constant("")) {
@@ -103,6 +110,12 @@ struct DashboardView: View {
                                         )
                                     }
                                 }
+                            }
+
+                            // Bookmarks section
+                            if !bookmarks.isEmpty && !isFilterActive && searchText.isEmpty {
+                                BookmarksSection(groupedBookmarks: groupedBookmarks)
+                                    .padding(.top, 24)
                             }
 
                             // Status filter at the bottom (only when no filter active)
@@ -507,7 +520,140 @@ struct ServiceGridView: View {
     }
 }
 
+// MARK: - Bookmarks Section
+
+struct BookmarksSection: View {
+    let groupedBookmarks: [(String, [Bookmark])]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Main bookmarks header
+            BookmarksSectionHeader()
+
+            ForEach(groupedBookmarks, id: \.0) { category, categoryBookmarks in
+                VStack(alignment: .leading, spacing: 10) {
+                    // Category header
+                    Text(category)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+
+                    // Bookmark pills - flowing layout
+                    FlowLayout(spacing: 8) {
+                        ForEach(categoryBookmarks, id: \.id) { bookmark in
+                            BookmarkPill(bookmark: bookmark)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct BookmarksSectionHeader: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "bookmark.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 24, height: 24)
+                .background {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.orange.opacity(0.15))
+                }
+
+            Text("Bookmarks")
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            Spacer()
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, -16)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Bookmarks section")
+    }
+}
+
+struct BookmarkPill: View {
+    let bookmark: Bookmark
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        Button {
+            if let url = bookmark.url {
+                openURL(url)
+            }
+        } label: {
+            Text(bookmark.name)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background {
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(bookmark.name)
+        .accessibilityHint("Opens \(bookmark.urlString)")
+    }
+}
+
+// MARK: - Flow Layout for Bookmarks
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = layout(subviews: subviews, containerWidth: proposal.width ?? .infinity)
+        return CGSize(width: proposal.width ?? result.width, height: result.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = layout(subviews: subviews, containerWidth: bounds.width)
+
+        for (index, subview) in subviews.enumerated() {
+            let point = CGPoint(
+                x: bounds.minX + result.positions[index].x,
+                y: bounds.minY + result.positions[index].y
+            )
+            subview.place(at: point, anchor: .topLeading, proposal: .unspecified)
+        }
+    }
+
+    private func layout(subviews: Subviews, containerWidth: CGFloat) -> (width: CGFloat, height: CGFloat, positions: [CGPoint]) {
+        var positions: [CGPoint] = []
+        var currentX: CGFloat = 0
+        var currentY: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var maxWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+
+            if currentX + size.width > containerWidth && currentX > 0 {
+                // Move to next line
+                currentX = 0
+                currentY += lineHeight + spacing
+                lineHeight = 0
+            }
+
+            positions.append(CGPoint(x: currentX, y: currentY))
+            lineHeight = max(lineHeight, size.height)
+            currentX += size.width + spacing
+            maxWidth = max(maxWidth, currentX - spacing)
+        }
+
+        return (maxWidth, currentY + lineHeight, positions)
+    }
+}
+
 #Preview {
     DashboardView()
-        .modelContainer(for: [Service.self, HomepageConnection.self, AppSettings.self], inMemory: true)
+        .modelContainer(for: [Service.self, HomepageConnection.self, AppSettings.self, Bookmark.self], inMemory: true)
 }

@@ -203,6 +203,7 @@ struct SettingsView: View {
     private func clearAllData() {
         try? modelContext.delete(model: HomepageConnection.self)
         try? modelContext.delete(model: Service.self)
+        try? modelContext.delete(model: Bookmark.self)
     }
 }
 
