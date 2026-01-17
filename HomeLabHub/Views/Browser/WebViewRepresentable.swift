@@ -19,6 +19,9 @@ struct WebViewRepresentable: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
 
+        // Extend content under safe areas (status bar/notch)
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+
         // Store reference
         tab.webView = webView
 
