@@ -4,10 +4,15 @@ struct ServiceCard: View {
     let service: Service
 
     @Environment(\.selectedTab) private var selectedTab
+    @State private var tabManager = TabManager.shared
 
     private var hasValidURL: Bool {
         guard let url = service.url else { return false }
         return !service.urlString.isEmpty && url.scheme != nil
+    }
+
+    private var hasOpenTab: Bool {
+        tabManager.tabs.contains { $0.service.id == service.id }
     }
 
     var body: some View {
@@ -47,12 +52,21 @@ struct ServiceCard: View {
             .padding(.horizontal, 16)
             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .opacity(hasValidURL ? 1.0 : 0.6)
+            .overlay(alignment: .topLeading) {
+                // Blue dot indicator when tab is open
+                if hasOpenTab {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 10, height: 10)
+                        .padding(12)
+                }
+            }
         }
         .buttonStyle(ServiceCardButtonStyle())
         .disabled(!hasValidURL)
         .accessibilityLabel("\(service.name) service")
         .accessibilityHint(hasValidURL ? "Double tap to open in browser" : "No URL configured")
-        .accessibilityValue(healthAccessibilityValue)
+        .accessibilityValue(hasOpenTab ? "Tab open. " : "" + healthAccessibilityValue)
     }
 
     private var healthAccessibilityValue: String {
