@@ -11,9 +11,19 @@ struct DashboardView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \Service.sortOrder) private var services: [Service]
 
-    @State private var searchText = ""
+    @Binding var searchText: String
+    @Binding var isSearchActive: Bool
     @State private var isRefreshing = false
     @State private var healthFilter: HealthFilter? = nil
+
+    private var isFilterActive: Bool {
+        healthFilter != nil
+    }
+
+    init(searchText: Binding<String> = .constant(""), isSearchActive: Binding<Bool> = .constant(false)) {
+        _searchText = searchText
+        _isSearchActive = isSearchActive
+    }
 
     private var filteredServices: [Service] {
         var result = services
@@ -41,53 +51,83 @@ struct DashboardView: View {
         return grouped.sorted { $0.key < $1.key }
     }
 
-    private var healthStats: (online: Int, offline: Int, unknown: Int) {
+    private var healthStats: (online: Int, offline: Int) {
         let online = services.filter { $0.isHealthy == true }.count
-        let offline = services.filter { $0.isHealthy == false }.count
-        let unknown = services.filter { $0.isHealthy == nil }.count
-        return (online, offline, unknown)
+        let offline = services.filter { $0.isHealthy == false || $0.isHealthy == nil }.count
+        return (online, offline)
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
-                    if services.isEmpty {
-                        EmptyDashboardView()
-                    } else {
-                        // Status summary card with tappable filters
-                        StatusSummaryCard(
-                            online: healthStats.online,
-                            offline: healthStats.offline,
-                            unknown: healthStats.unknown,
-                            selectedFilter: $healthFilter
-                        )
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
+                        // Custom header when filter is active
+                        HStack {
+                            Text("Dashboard")
+                                .font(.largeTitle.weight(.bold))
 
-                        // Show flat grid when filtering, grouped otherwise
-                        if healthFilter != nil {
-                            ServiceGridView(services: filteredServices)
+                            Spacer()
+
+                            StatusSummaryCard(
+                                online: healthStats.online,
+                                offline: healthStats.offline,
+                                selectedFilter: $healthFilter
+                            )
+                        }
+                        .padding(.bottom, 8)
+                        .opacity(isFilterActive ? 1 : 0)
+                        .frame(height: isFilterActive ? nil : 0)
+                        .clipped()
+                        .id("top")
+
+                        if services.isEmpty {
+                            EmptyDashboardView()
                         } else {
-                            ForEach(groupedServices, id: \.0) { category, categoryServices in
-                                Section {
-                                    ServiceGridView(services: categoryServices)
-                                } header: {
-                                    CategoryHeader(
-                                        title: category,
-                                        count: categoryServices.count,
-                                        onlineCount: categoryServices.filter { $0.isHealthy == true }.count
-                                    )
+                            // Show search results or grouped view
+                            if !searchText.isEmpty || isFilterActive {
+                                ServiceGridView(services: filteredServices)
+                            } else {
+                                ForEach(groupedServices, id: \.0) { category, categoryServices in
+                                    Section {
+                                        ServiceGridView(services: categoryServices)
+                                    } header: {
+                                        CategoryHeader(
+                                            title: category,
+                                            count: categoryServices.count,
+                                            onlineCount: categoryServices.filter { $0.isHealthy == true }.count
+                                        )
+                                    }
                                 }
                             }
+
+                            // Status filter at the bottom (only when no filter active)
+                            StatusSummaryCard(
+                                online: healthStats.online,
+                                offline: healthStats.offline,
+                                selectedFilter: $healthFilter
+                            )
+                            .padding(.top, 16)
+                            .opacity(isFilterActive ? 0 : 1)
+                            .frame(height: isFilterActive ? 0 : nil)
+                            .clipped()
                         }
                     }
+                    .padding()
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
                 }
-                .padding()
+                .background {
+                    DashboardBackground()
+                }
+                .onChange(of: healthFilter) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        proxy.scrollTo("top", anchor: .top)
+                    }
+                }
             }
-            .background {
-                DashboardBackground()
-            }
-            .navigationTitle("Dashboard")
-            .searchable(text: $searchText, prompt: "Search services")
+            .navigationTitle(isFilterActive ? "" : "Dashboard")
+            .navigationBarTitleDisplayMode(isFilterActive ? .inline : .large)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
             .refreshable {
                 await refreshServices()
             }
@@ -112,7 +152,6 @@ struct DashboardView: View {
 struct StatusSummaryCard: View {
     let online: Int
     let offline: Int
-    let unknown: Int
     @Binding var selectedFilter: HealthFilter?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -126,9 +165,7 @@ struct StatusSummaryCard: View {
                 accessibilityLabel: "Online",
                 isSelected: selectedFilter == .online
             ) {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedFilter = selectedFilter == .online ? nil : .online
-                }
+                selectedFilter = selectedFilter == .online ? nil : .online
             }
 
             StatusPill(
@@ -138,21 +175,7 @@ struct StatusSummaryCard: View {
                 accessibilityLabel: "Offline",
                 isSelected: selectedFilter == .offline
             ) {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedFilter = selectedFilter == .offline ? nil : .offline
-                }
-            }
-
-            // Only show Checking if there are any
-            if unknown > 0 {
-                StatusPill(
-                    icon: "questionmark.circle.fill",
-                    count: unknown,
-                    color: .orange,
-                    accessibilityLabel: "Checking",
-                    isSelected: false
-                ) {}
-                .disabled(true)
+                selectedFilter = selectedFilter == .offline ? nil : .offline
             }
         }
         .padding(.vertical, 8)
