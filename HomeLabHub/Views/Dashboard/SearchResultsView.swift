@@ -36,6 +36,7 @@ struct SearchResultsView: View {
 struct ServiceSearchRow: View {
     let service: Service
     @Environment(\.selectedTab) private var selectedTab
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button {
@@ -44,19 +45,12 @@ struct ServiceSearchRow: View {
             selectedTab.wrappedValue = .browser
         } label: {
             HStack(spacing: 12) {
-                // Service icon
-                AsyncImage(url: service.iconURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    case .failure, .empty:
+                // Service icon with dark/light mode support
+                Group {
+                    if let iconURL = service.iconURL {
+                        ThemedAsyncImage(originalURL: iconURL, colorScheme: colorScheme)
+                    } else {
                         Image(systemName: iconForCategory(service.category))
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                    @unknown default:
-                        Image(systemName: "square.grid.2x2")
                             .font(.title3)
                             .foregroundStyle(.secondary)
                     }

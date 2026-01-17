@@ -80,6 +80,7 @@ struct ServiceCardButtonStyle: ButtonStyle {
 
 struct ServiceIcon: View {
     let service: Service
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Group {
@@ -89,26 +90,94 @@ struct ServiceIcon: View {
                     .fontWeight(.medium)
                     .foregroundStyle(.primary)
             } else if let iconURL = service.iconURL {
-                AsyncImage(url: iconURL) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    case .failure:
-                        DefaultServiceIcon()
-                    @unknown default:
-                        DefaultServiceIcon()
-                    }
-                }
+                ThemedAsyncImage(
+                    originalURL: iconURL,
+                    colorScheme: colorScheme
+                )
             } else {
                 DefaultServiceIcon()
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// Loads an icon with automatic dark/light mode variant support
+/// Tries themed variant first, falls back to original if not available
+struct ThemedAsyncImage: View {
+    let originalURL: URL
+    let colorScheme: ColorScheme
+
+    @State private var useFallback = false
+
+    private var themedURL: URL {
+        guard !useFallback else { return originalURL }
+        return IconURLTransformer.themedURL(from: originalURL, for: colorScheme)
+    }
+
+    var body: some View {
+        AsyncImage(url: themedURL) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            case .failure:
+                if !useFallback && themedURL != originalURL {
+                    // Themed variant failed, try original
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .onAppear { useFallback = true }
+                } else {
+                    DefaultServiceIcon()
+                }
+            case .empty:
+                ProgressView()
+                    .scaleEffect(0.8)
+            @unknown default:
+                DefaultServiceIcon()
+            }
+        }
+        .id(themedURL) // Force reload when URL changes
+        .onChange(of: colorScheme) { _, _ in
+            // Reset fallback state when color scheme changes
+            useFallback = false
+        }
+    }
+}
+
+/// Transforms icon URLs to their dark/light mode variants
+enum IconURLTransformer {
+    /// Returns the appropriate themed URL for the given color scheme
+    static func themedURL(from url: URL, for colorScheme: ColorScheme) -> URL {
+        let urlString = url.absoluteString
+
+        // Simple Icons: add /white for dark mode
+        // Format: https://cdn.simpleicons.org/{icon} -> https://cdn.simpleicons.org/{icon}/white
+        if urlString.contains("cdn.simpleicons.org") {
+            if colorScheme == .dark && !urlString.contains("/white") {
+                return URL(string: urlString + "/white") ?? url
+            }
+            return url
+        }
+
+        // Dashboard Icons: add -light suffix for dark mode
+        // Format: .../png/{icon}.png -> .../png/{icon}-light.png
+        if urlString.contains("dashboard-icons") && urlString.hasSuffix(".png") {
+            // Don't transform if already has a variant suffix
+            if urlString.contains("-light.png") || urlString.contains("-dark.png") {
+                return url
+            }
+
+            if colorScheme == .dark {
+                let baseURL = String(urlString.dropLast(4)) // Remove ".png"
+                return URL(string: baseURL + "-light.png") ?? url
+            }
+            return url
+        }
+
+        // Other URLs: return as-is
+        return url
     }
 }
 
