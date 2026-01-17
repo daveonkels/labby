@@ -121,10 +121,12 @@ actor HealthChecker {
             let (_, response) = try await Self.healthCheckSession.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
-                // If HEAD returns 501 (Not Implemented), fall back to GET
-                // Some servers like Transmission don't support HEAD requests
-                if httpResponse.statusCode == 501 {
-                    print("🏥 [Health] \(name): HEAD not supported, trying GET")
+                // If HEAD returns certain error codes, fall back to GET
+                // Some servers don't properly support HEAD requests:
+                // - 501: Not Implemented (e.g., Transmission)
+                // - 503: Service Unavailable (e.g., Blue Iris)
+                if httpResponse.statusCode == 501 || httpResponse.statusCode == 503 {
+                    print("🏥 [Health] \(name): HEAD returned \(httpResponse.statusCode), trying GET")
                     return await performGetHealthCheck(url: url, name: name)
                 }
 
