@@ -24,7 +24,7 @@ struct SwipeableBrowserView: View {
     @Bindable var tabManager: TabManager
     @State private var selectedIndex: Int = 0
     @State private var toolbarVisible: Bool = true
-    @State private var dotsVisible: Bool = false
+    @State private var dotsVisible: Bool = true
     @State private var hideToolbarTask: Task<Void, Never>?
     @State private var hideDotsTask: Task<Void, Never>?
 
@@ -46,6 +46,7 @@ struct SwipeableBrowserView: View {
             .onAppear {
                 syncSelectedIndex()
                 scheduleToolbarHide()
+                showDotsTemporarily()
             }
 
             // Floating toolbar overlay (auto-hides)
@@ -63,16 +64,15 @@ struct SwipeableBrowserView: View {
                 .opacity(toolbarVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.25), value: toolbarVisible)
 
-                // Page indicator - only shown when multiple tabs and during/after swipe
-                if tabManager.tabs.count > 1 {
-                    PageDots(
-                        count: tabManager.tabs.count,
-                        currentIndex: selectedIndex
-                    )
-                    .padding(.bottom, 4)
-                    .opacity(dotsVisible ? 1 : 0)
-                    .animation(.easeInOut(duration: 0.25), value: dotsVisible)
-                }
+                // Page indicator - long press to close current tab
+                PageDots(
+                    count: tabManager.tabs.count,
+                    currentIndex: selectedIndex,
+                    onCloseCurrentTab: closeCurrentTab
+                )
+                .padding(.bottom, 8)
+                .opacity(dotsVisible ? 1 : 0)
+                .animation(.easeInOut(duration: 0.25), value: dotsVisible)
             }
         }
     }
@@ -97,6 +97,7 @@ struct SwipeableBrowserView: View {
     private func showToolbar() {
         toolbarVisible = true
         scheduleToolbarHide()
+        showDotsTemporarily()
     }
 
     private func scheduleToolbarHide() {
@@ -126,10 +127,16 @@ struct SwipeableBrowserView: View {
 
     private func closeCurrentTab() {
         guard let tab = currentTab else { return }
-        let newIndex = max(0, selectedIndex - 1)
+        closeTab(at: selectedIndex)
+    }
+
+    private func closeTab(at index: Int) {
+        guard index < tabManager.tabs.count else { return }
+        let tab = tabManager.tabs[index]
+        let newIndex = max(0, min(selectedIndex, tabManager.tabs.count - 2))
         tabManager.closeTab(tab)
         if !tabManager.tabs.isEmpty {
-            selectedIndex = min(newIndex, tabManager.tabs.count - 1)
+            selectedIndex = newIndex
         }
     }
 }
@@ -254,18 +261,53 @@ struct FloatingBrowserToolbar: View {
 struct PageDots: View {
     let count: Int
     let currentIndex: Int
+    let onCloseCurrentTab: () -> Void
+
+    @State private var showCloseMenu = false
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(0..<count, id: \.self) { index in
                 Circle()
                     .fill(index == currentIndex ? Color.primary : Color.primary.opacity(0.3))
-                    .frame(width: index == currentIndex ? 7 : 5, height: index == currentIndex ? 7 : 5)
+                    .frame(width: index == currentIndex ? 8 : 6, height: index == currentIndex ? 8 : 6)
                     .animation(.easeInOut(duration: 0.2), value: currentIndex)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .glassEffect(.regular, in: Capsule())
+        .contentShape(Capsule())
+        .onLongPressGesture(minimumDuration: 0.4) {
+            showCloseMenu = true
+        }
+        .popover(isPresented: $showCloseMenu, arrowEdge: .bottom) {
+            CloseTabPopover(onClose: {
+                showCloseMenu = false
+                onCloseCurrentTab()
+            })
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+struct CloseTabPopover: View {
+    let onClose: () -> Void
+
+    var body: some View {
+        Button(role: .destructive, action: onClose) {
+            HStack(spacing: 8) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.body)
+                Text("Close Tab")
+                    .font(.subheadline.weight(.medium))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.red)
+        .background(.ultraThinMaterial)
     }
 }
 
