@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var showingAddConnection = false
     @State private var showingAddService = false
     @State private var showingClearDataAlert = false
+    @State private var connectionToEdit: HomepageConnection?
 
     private var settings: AppSettings {
         if let existing = allSettings.first {
@@ -24,7 +25,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Homepage Connections
+                // Homepage Connection
                 Section {
                     if connections.isEmpty {
                         HStack(spacing: 12) {
@@ -34,31 +35,46 @@ struct SettingsView: View {
                                 .frame(width: 44)
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("No Connections")
+                                Text("No Connection")
                                     .font(.subheadline.weight(.medium))
-                                Text("Add your first Homepage connection")
+                                Text("Add your Homepage connection")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         }
                         .padding(.vertical, 4)
+
+                        Button {
+                            showingAddConnection = true
+                        } label: {
+                            Label("Add Homepage Connection", systemImage: "plus.circle.fill")
+                                .foregroundStyle(Color.accentColor)
+                        }
                     } else {
                         ForEach(connections) { connection in
                             ConnectionRow(connection: connection)
-                        }
-                        .onDelete(perform: deleteConnections)
-                    }
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        modelContext.delete(connection)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
 
-                    Button {
-                        showingAddConnection = true
-                    } label: {
-                        Label("Add Homepage Connection", systemImage: "plus.circle.fill")
-                            .foregroundStyle(Color.accentColor)
+                                    Button {
+                                        connectionToEdit = connection
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
+                                }
+                        }
                     }
                 } header: {
-                    Label("Homepage Connections", systemImage: "link")
+                    Label("Homepage Connection", systemImage: "link")
                 } footer: {
-                    Text("Connect to your Homepage instance to sync services automatically.")
+                    Text(connections.isEmpty
+                         ? "Connect to your Homepage instance to sync services automatically."
+                         : "Swipe to edit or delete.")
                 }
 
                 // Manual Services
@@ -167,6 +183,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showingAddConnection) {
                 ConnectionSetupView()
             }
+            .sheet(item: $connectionToEdit) { connection in
+                ConnectionSetupView(connection: connection)
+            }
             .sheet(isPresented: $showingAddService) {
                 AddServiceView()
             }
@@ -178,12 +197,6 @@ struct SettingsView: View {
             } message: {
                 Text("This will permanently delete all \(connections.count) connections and \(services.count) services. This action cannot be undone.")
             }
-        }
-    }
-
-    private func deleteConnections(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(connections[index])
         }
     }
 

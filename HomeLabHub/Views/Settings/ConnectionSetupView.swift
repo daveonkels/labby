@@ -5,11 +5,16 @@ struct ConnectionSetupView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    /// Connection to edit, or nil for creating a new connection
+    var connection: HomepageConnection?
+
     @State private var name = "My Homepage"
     @State private var urlString = ""
     @State private var isValidating = false
     @State private var validationError: String?
     @State private var isValid = false
+
+    private var isEditing: Bool { connection != nil }
 
     var body: some View {
         NavigationStack {
@@ -24,8 +29,11 @@ struct ConnectionSetupView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .onChange(of: urlString) {
-                            isValid = false
-                            validationError = nil
+                            // Only reset validation if URL actually changed from original
+                            if urlString != connection?.baseURLString {
+                                isValid = false
+                                validationError = nil
+                            }
                         }
                 } header: {
                     Text("Connection Details")
@@ -64,7 +72,7 @@ struct ConnectionSetupView: View {
                     }
                 }
             }
-            .navigationTitle("Add Connection")
+            .navigationTitle(isEditing ? "Edit Connection" : "Connect Homepage")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -77,7 +85,14 @@ struct ConnectionSetupView: View {
                     Button("Save") {
                         saveConnection()
                     }
-                    .disabled(!isValid)
+                    .disabled(!isValid && !isEditing)
+                }
+            }
+            .onAppear {
+                if let connection {
+                    name = connection.name
+                    urlString = connection.baseURLString
+                    isValid = true // Assume existing connection is valid
                 }
             }
         }
@@ -122,16 +137,28 @@ struct ConnectionSetupView: View {
     }
 
     private func saveConnection() {
-        let connection = HomepageConnection(
-            baseURLString: urlString,
-            name: name
-        )
+        if let existing = connection {
+            // Update existing connection
+            existing.name = name
+            existing.baseURLString = urlString
 
-        modelContext.insert(connection)
+            // Trigger sync after updating
+            Task {
+                await SyncManager.shared.syncConnection(existing, modelContext: modelContext)
+            }
+        } else {
+            // Create new connection
+            let newConnection = HomepageConnection(
+                baseURLString: urlString,
+                name: name
+            )
 
-        // Trigger sync after saving
-        Task {
-            await SyncManager.shared.syncConnection(connection, modelContext: modelContext)
+            modelContext.insert(newConnection)
+
+            // Trigger sync after saving
+            Task {
+                await SyncManager.shared.syncConnection(newConnection, modelContext: modelContext)
+            }
         }
 
         dismiss()

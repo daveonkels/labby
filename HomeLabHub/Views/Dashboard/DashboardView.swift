@@ -10,6 +10,7 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \Service.sortOrder) private var services: [Service]
+    @Query private var connections: [HomepageConnection]
 
     @Binding var searchText: String
     @State private var isRefreshing = false
@@ -17,6 +18,11 @@ struct DashboardView: View {
 
     private var isFilterActive: Bool {
         healthFilter != nil
+    }
+
+    /// Dashboard title from the connection name, or "Dashboard" as fallback
+    private var dashboardTitle: String {
+        connections.first?.name ?? "Dashboard"
     }
 
     init(searchText: Binding<String> = .constant("")) {
@@ -62,7 +68,7 @@ struct DashboardView: View {
                     LazyVStack(spacing: 12, pinnedViews: [.sectionHeaders]) {
                         // Custom header when filter is active
                         HStack {
-                            Text("Dashboard")
+                            Text(dashboardTitle)
                                 .font(.largeTitle.weight(.bold))
 
                             Spacer()
@@ -123,7 +129,7 @@ struct DashboardView: View {
                     }
                 }
             }
-            .navigationTitle(isFilterActive ? "" : "Dashboard")
+            .navigationTitle(isFilterActive ? "" : dashboardTitle)
             .navigationBarTitleDisplayMode(isFilterActive ? .inline : .large)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
             .refreshable {
