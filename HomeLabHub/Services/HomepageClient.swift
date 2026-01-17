@@ -239,6 +239,13 @@ struct HomepageClient {
             for serviceInfo in servicesList {
                 let serviceName = serviceInfo["name"] as? String ?? "Unknown"
                 let href = serviceInfo["href"] as? String
+
+                // Skip widgets (they don't have an href, only services do)
+                guard href != nil else {
+                    print("📄 [Homepage]   Skipping widget: \(serviceName) (no href)")
+                    continue
+                }
+
                 let icon = serviceInfo["icon"] as? String
                 let description = serviceInfo["description"] as? String
 
