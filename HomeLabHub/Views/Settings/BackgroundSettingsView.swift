@@ -63,6 +63,46 @@ struct BackgroundSettingsView: View {
                 Text("Gradients")
             }
 
+            // Intensity Section
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Background Intensity")
+                        Spacer()
+                        Text("\(Int(settings.backgroundIntensity * 100))%")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+
+                    Slider(
+                        value: Binding(
+                            get: { settings.backgroundIntensity },
+                            set: { newValue in
+                                settings.backgroundIntensity = newValue
+                                try? modelContext.save()
+                            }
+                        ),
+                        in: 0...1,
+                        step: 0.05
+                    )
+
+                    HStack {
+                        Text("Subtle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("Vibrant")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("Intensity")
+            } footer: {
+                Text("Adjusts how visible the background appears behind the dashboard content.")
+            }
+
             // Options Section
             Section {
                 // Photo Library Option
@@ -200,7 +240,13 @@ struct BackgroundSettingsView: View {
 // MARK: - Background Preview
 
 struct BackgroundPreview: View {
+    @Environment(\.colorScheme) private var colorScheme
     let settings: AppSettings
+
+    private var imageOverlayOpacity: Double {
+        let baseOpacity = colorScheme == .dark ? 0.85 : 0.9
+        return baseOpacity - (settings.backgroundIntensity * 0.5)
+    }
 
     var body: some View {
         ZStack {
@@ -212,10 +258,11 @@ struct BackgroundPreview: View {
                     .clipped()
 
                 // Overlay for readability preview
-                Color.black.opacity(0.1)
+                Color(.systemGroupedBackground)
+                    .opacity(imageOverlayOpacity)
             } else {
                 // Gradient preview based on selected preset
-                GradientBackgroundPreview(preset: settings.gradientPreset)
+                GradientBackgroundPreview(preset: settings.gradientPreset, intensity: settings.backgroundIntensity)
             }
 
             // Sample content overlay
@@ -237,6 +284,11 @@ struct BackgroundPreview: View {
 
 struct GradientBackgroundPreview: View {
     var preset: GradientPreset = .default
+    var intensity: Double = 0.5
+
+    private var opacityScale: Double {
+        0.4 + (intensity * 1.2)
+    }
 
     var body: some View {
         ZStack {
@@ -247,7 +299,7 @@ struct GradientBackgroundPreview: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.green.opacity(0.15), Color.clear],
+                                colors: [Color.green.opacity(0.15 * opacityScale), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.4
@@ -260,7 +312,7 @@ struct GradientBackgroundPreview: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.blue.opacity(0.1), Color.clear],
+                                colors: [Color.blue.opacity(0.1 * opacityScale), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.3
@@ -272,14 +324,14 @@ struct GradientBackgroundPreview: View {
                 }
             } else if preset.isRadial {
                 RadialGradient(
-                    colors: preset.colors.map { $0.opacity(0.3) } + [Color.clear],
+                    colors: preset.colors.map { $0.opacity(0.3 * opacityScale) } + [Color.clear],
                     center: .center,
                     startRadius: 0,
                     endRadius: 300
                 )
             } else {
                 LinearGradient(
-                    colors: preset.colors.map { $0.opacity(0.4) },
+                    colors: preset.colors.map { $0.opacity(0.4 * opacityScale) },
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

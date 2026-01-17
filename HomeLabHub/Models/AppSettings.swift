@@ -107,6 +107,7 @@ final class AppSettings {
     var backgroundImageData: Data?
     var gradientPresetRaw: String = GradientPreset.default.rawValue
     var colorSchemePreferenceRaw: String = ColorSchemePreference.system.rawValue
+    var backgroundIntensity: Double = 0.5
     var createdAt: Date
 
     var gradientPreset: GradientPreset {
@@ -125,6 +126,7 @@ final class AppSettings {
         backgroundImageData: Data? = nil,
         gradientPreset: GradientPreset = .default,
         colorSchemePreference: ColorSchemePreference = .system,
+        backgroundIntensity: Double = 0.5,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -132,6 +134,7 @@ final class AppSettings {
         self.backgroundImageData = backgroundImageData
         self.gradientPresetRaw = gradientPreset.rawValue
         self.colorSchemePreferenceRaw = colorSchemePreference.rawValue
+        self.backgroundIntensity = backgroundIntensity
         self.createdAt = createdAt
     }
 

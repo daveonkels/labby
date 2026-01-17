@@ -236,6 +236,17 @@ struct DashboardBackground: View {
         settings?.gradientPreset ?? .default
     }
 
+    private var intensity: Double {
+        settings?.backgroundIntensity ?? 0.5
+    }
+
+    /// Calculates overlay opacity for custom images
+    /// Higher intensity = less overlay = more visible background
+    private var imageOverlayOpacity: Double {
+        let baseOpacity = colorScheme == .dark ? 0.85 : 0.9
+        return baseOpacity - (intensity * 0.5)
+    }
+
     var body: some View {
         ZStack {
             // Base background color
@@ -252,11 +263,11 @@ struct DashboardBackground: View {
 
                 // Overlay for readability
                 Color(.systemGroupedBackground)
-                    .opacity(colorScheme == .dark ? 0.7 : 0.75)
+                    .opacity(imageOverlayOpacity)
                     .ignoresSafeArea()
             } else {
                 // Gradient based on selected preset
-                GradientPresetBackground(preset: gradientPreset)
+                GradientPresetBackground(preset: gradientPreset, intensity: intensity)
                     .ignoresSafeArea()
             }
         }
@@ -265,6 +276,15 @@ struct DashboardBackground: View {
 
 struct GradientPresetBackground: View {
     let preset: GradientPreset
+    var intensity: Double = 0.5
+
+    /// Scales gradient opacity based on intensity
+    /// At 0: scale by 0.4 (subtle)
+    /// At 0.5: scale by 1.0 (normal)
+    /// At 1.0: scale by 1.6 (vibrant)
+    private var opacityScale: Double {
+        0.4 + (intensity * 1.2)
+    }
 
     var body: some View {
         if preset == .default {
@@ -273,7 +293,7 @@ struct GradientPresetBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.green.opacity(0.15), Color.clear],
+                            colors: [Color.green.opacity(0.15 * opacityScale), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.4
@@ -286,7 +306,7 @@ struct GradientPresetBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.blue.opacity(0.1), Color.clear],
+                            colors: [Color.blue.opacity(0.1 * opacityScale), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.3
@@ -299,7 +319,7 @@ struct GradientPresetBackground: View {
         } else if preset.isRadial {
             GeometryReader { geo in
                 RadialGradient(
-                    colors: preset.colors.map { $0.opacity(0.25) } + [Color.clear],
+                    colors: preset.colors.map { $0.opacity(0.25 * opacityScale) } + [Color.clear],
                     center: .center,
                     startRadius: 0,
                     endRadius: max(geo.size.width, geo.size.height) * 0.7
@@ -307,7 +327,7 @@ struct GradientPresetBackground: View {
             }
         } else {
             LinearGradient(
-                colors: preset.colors.map { $0.opacity(0.3) },
+                colors: preset.colors.map { $0.opacity(0.3 * opacityScale) },
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
