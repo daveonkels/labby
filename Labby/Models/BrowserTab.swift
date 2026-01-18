@@ -6,7 +6,7 @@ import SwiftData
 final class BrowserTab: Identifiable {
     let id: UUID
     let service: Service
-    var webView: WKWebView?
+    weak var webView: WKWebView?
     var currentURL: URL?
     var title: String?
     var isLoading: Bool = false
@@ -79,6 +79,10 @@ final class TabManager {
     }
 
     func closeTab(_ tab: BrowserTab) {
+        // Clean up WebView to prevent memory leaks
+        tab.webView?.stopLoading()
+        tab.webView = nil
+
         tabs.removeAll { $0.id == tab.id }
 
         if activeTabId == tab.id {
@@ -88,6 +92,11 @@ final class TabManager {
     }
 
     func closeAllTabs() {
+        // Clean up all WebViews to prevent memory leaks
+        for tab in tabs {
+            tab.webView?.stopLoading()
+            tab.webView = nil
+        }
         tabs.removeAll()
         activeTabId = nil
         saveTabs()
@@ -107,7 +116,6 @@ final class TabManager {
 
         if let data = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(data, forKey: PersistedBrowserState.userDefaultsKey)
-            print("🌐 [Tabs] Saved \(tabs.count) tabs")
         }
     }
 
@@ -121,14 +129,12 @@ final class TabManager {
         guard let data = UserDefaults.standard.data(forKey: PersistedBrowserState.userDefaultsKey),
               let state = try? JSONDecoder().decode(PersistedBrowserState.self, from: data),
               !state.tabs.isEmpty else {
-            print("🌐 [Tabs] No saved tabs to restore")
             return
         }
 
         // Fetch all services to match against saved tabs
         let descriptor = FetchDescriptor<Service>()
         guard let services = try? modelContext.fetch(descriptor) else {
-            print("🌐 [Tabs] Failed to fetch services for tab restoration")
             return
         }
 
@@ -157,8 +163,6 @@ final class TabManager {
         if activeTabId == nil && !tabs.isEmpty {
             activeTabId = tabs.first?.id
         }
-
-        print("🌐 [Tabs] Restored \(restoredCount)/\(state.tabs.count) tabs")
     }
 
     /// Updates the current URL for a tab (called when navigation completes)

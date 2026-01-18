@@ -8,6 +8,7 @@ final class HomepageConnection {
     var name: String
     var lastSync: Date?
     var syncEnabled: Bool
+    var trustSelfSignedCertificates: Bool
     var createdAt: Date
 
     var baseURL: URL? {
@@ -18,12 +19,14 @@ final class HomepageConnection {
         id: UUID = UUID(),
         baseURLString: String,
         name: String = "My Homepage",
-        syncEnabled: Bool = true
+        syncEnabled: Bool = true,
+        trustSelfSignedCertificates: Bool = true
     ) {
         self.id = id
         self.baseURLString = baseURLString
         self.name = name
         self.syncEnabled = syncEnabled
+        self.trustSelfSignedCertificates = trustSelfSignedCertificates
         self.createdAt = Date()
         self.lastSync = nil
     }

@@ -26,7 +26,7 @@ struct AboutView: View {
                 LinkRow(
                     title: "Website",
                     icon: "globe",
-                    url: URL(string: "https://homelabhub.app")!
+                    url: URL(string: "https://labby.casa")!
                 )
             }
 
@@ -35,13 +35,13 @@ struct AboutView: View {
                 LinkRow(
                     title: "Terms of Service",
                     icon: "doc.text",
-                    url: URL(string: "https://homelabhub.app/terms")!
+                    url: URL(string: "https://labby.casa/terms")!
                 )
 
                 LinkRow(
                     title: "Privacy Policy",
                     icon: "hand.raised",
-                    url: URL(string: "https://homelabhub.app/privacy")!
+                    url: URL(string: "https://labby.casa/privacy")!
                 )
 
                 NavigationLink {

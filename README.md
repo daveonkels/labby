@@ -43,7 +43,7 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 
 1. **Clone the repository**
    ```bash
-   cd ~/Dev/homelabhub
+   cd ~/Dev/labby
    ```
 
 2. **Generate Xcode project**
@@ -150,8 +150,6 @@ The app is configured for homelab environments:
 ```xml
 <key>NSAppTransportSecurity</key>
 <dict>
-    <key>NSAllowsArbitraryLoads</key>
-    <true/>
     <key>NSAllowsLocalNetworking</key>
     <true/>
 </dict>

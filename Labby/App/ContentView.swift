@@ -78,6 +78,8 @@ struct MainTabView: View {
             }
         }
         .onAppear {
+            // Restore trusted domains for SSL certificate handling
+            SyncManager.shared.restoreTrustedDomains(modelContext: modelContext)
             // Restore previously open browser tabs
             TabManager.shared.restoreTabs(modelContext: modelContext)
         }

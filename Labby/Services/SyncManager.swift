@@ -19,14 +19,22 @@ final class SyncManager {
             return
         }
 
+        // Register trusted domain if enabled for this connection
+        if connection.trustSelfSignedCertificates, let host = baseURL.host {
+            TrustedDomainManager.shared.trustHost(host)
+        }
+
         isSyncing = true
         lastError = nil
 
         do {
-            print("🔄 [Sync] Starting sync for: \(baseURL)")
             let client = HomepageClient(baseURL: baseURL)
             let (parsedServices, parsedBookmarks) = try await client.fetchAll()
-            print("🔄 [Sync] Received \(parsedServices.count) services, \(parsedBookmarks.count) bookmarks")
+
+            // If trust is enabled, also trust hosts of synced services
+            if connection.trustSelfSignedCertificates {
+                registerServiceHosts(parsedServices)
+            }
 
             // Sync services
             await syncServices(parsedServices, modelContext: modelContext)
@@ -45,8 +53,6 @@ final class SyncManager {
 
         } catch {
             lastError = error
-            print("❌ [Sync] Sync failed: \(error)")
-            print("❌ [Sync] Error details: \(String(describing: error))")
         }
 
         isSyncing = false
@@ -100,9 +106,6 @@ final class SyncManager {
                     deletedCount += 1
                 }
             }
-            if deletedCount > 0 {
-                print("🔄 [Sync] Removed \(deletedCount) services no longer in Homepage")
-            }
         }
     }
 
@@ -148,9 +151,6 @@ final class SyncManager {
                     deletedCount += 1
                 }
             }
-            if deletedCount > 0 {
-                print("🔄 [Sync] Removed \(deletedCount) bookmarks no longer in Homepage")
-            }
         }
     }
 
@@ -184,9 +184,6 @@ final class SyncManager {
             }
         }
 
-        if deletedCount > 0 {
-            print("🔄 [Sync] Removed \(deletedCount) orphaned category icon preferences")
-        }
     }
 
     /// Syncs all enabled connections
@@ -202,6 +199,53 @@ final class SyncManager {
 
         for connection in connections {
             await syncConnection(connection, modelContext: modelContext)
+        }
+    }
+
+    /// Registers hosts from parsed services as trusted domains
+    private func registerServiceHosts(_ services: [ParsedService]) {
+        var hosts: [String] = []
+        for service in services {
+            if let href = service.href,
+               let url = URL(string: href),
+               let host = url.host {
+                hosts.append(host)
+            }
+        }
+        if !hosts.isEmpty {
+            TrustedDomainManager.shared.trustHosts(hosts)
+        }
+    }
+
+    /// Restores trusted domains from saved connections on app launch
+    @MainActor
+    func restoreTrustedDomains(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<HomepageConnection>()
+
+        guard let connections = try? modelContext.fetch(descriptor) else {
+            return
+        }
+
+        for connection in connections {
+            guard connection.trustSelfSignedCertificates,
+                  let host = connection.baseURL?.host else {
+                continue
+            }
+            TrustedDomainManager.shared.trustHost(host)
+        }
+
+        // Also trust hosts from existing services
+        let servicesDescriptor = FetchDescriptor<Service>()
+        if let services = try? modelContext.fetch(servicesDescriptor) {
+            var hosts: [String] = []
+            for service in services {
+                if let url = service.url, let host = url.host {
+                    hosts.append(host)
+                }
+            }
+            if !hosts.isEmpty {
+                TrustedDomainManager.shared.trustHosts(hosts)
+            }
         }
     }
 }

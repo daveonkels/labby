@@ -9,12 +9,12 @@ actor HealthChecker {
     private let cacheInterval: TimeInterval = 55 // skip if checked within this time
     private let maxConcurrentChecks = 5
 
-    /// URLSession with shorter timeouts for health checks (uses shared InsecureURLSession delegate)
+    /// URLSession with shorter timeouts for health checks (uses trusted domain SSL delegate)
     private static let healthCheckSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 8
         config.timeoutIntervalForResource = 15
-        return URLSession(configuration: config, delegate: InsecureSSLDelegate.shared, delegateQueue: nil)
+        return URLSession(configuration: config, delegate: TrustedDomainSSLDelegate.shared, delegateQueue: nil)
     }()
 
     private init() {}
@@ -23,11 +23,8 @@ actor HealthChecker {
     func startMonitoring(modelContext: ModelContext) {
         // Cancel existing monitoring task if running
         if monitoringTask != nil {
-            print("🏥 [Health] Restarting monitoring with fresh context")
             monitoringTask?.cancel()
         }
-
-        print("🏥 [Health] Starting health monitoring (interval: \(Int(checkInterval))s)")
 
         monitoringTask = Task { @MainActor in
             while !Task.isCancelled {
@@ -38,7 +35,6 @@ actor HealthChecker {
     }
 
     func stopMonitoring() {
-        print("🏥 [Health] Stopping health monitoring")
         monitoringTask?.cancel()
         monitoringTask = nil
     }
@@ -49,7 +45,6 @@ actor HealthChecker {
         let descriptor = FetchDescriptor<Service>()
 
         guard let services = try? modelContext.fetch(descriptor) else {
-            print("🏥 [Health] Failed to fetch services")
             return
         }
 
@@ -69,11 +64,8 @@ actor HealthChecker {
         }
 
         if checkTasks.isEmpty {
-            print("🏥 [Health] All services recently checked, skipping")
             return
         }
-
-        print("🏥 [Health] Checking \(checkTasks.count)/\(services.count) services")
 
         // Perform health checks with limited concurrency
         await withTaskGroup(of: (Int, Bool).self) { group in
@@ -104,12 +96,10 @@ actor HealthChecker {
         }
 
         try? modelContext.save()
-        print("🏥 [Health] Check complete")
     }
 
     /// Performs the actual HTTP health check (no Service access)
     nonisolated func performHealthCheck(url: URL, name: String) async -> Bool {
-        print("🏥 [Health] Checking: \(name) at \(url.absoluteString)")
 
         // Try HEAD first for efficiency
         var request = URLRequest(url: url)
@@ -127,21 +117,14 @@ actor HealthChecker {
                 // - 502: Bad Gateway (e.g., NZBGet behind reverse proxy)
                 // - 503: Service Unavailable (e.g., Blue Iris)
                 if (500...599).contains(httpResponse.statusCode) {
-                    print("🏥 [Health] \(name): HEAD returned \(httpResponse.statusCode), trying GET")
                     return await performGetHealthCheck(url: url, name: name)
                 }
 
                 let isHealthy = (200...499).contains(httpResponse.statusCode)
-                print("🏥 [Health] \(name): HTTP \(httpResponse.statusCode) -> \(isHealthy ? "online" : "offline")")
                 return isHealthy
             }
-            print("🏥 [Health] \(name): No HTTP response")
-            return false
-        } catch let error as URLError {
-            print("🏥 [Health] \(name): URLError \(error.code.rawValue) - \(error.localizedDescription)")
             return false
         } catch {
-            print("🏥 [Health] \(name): Error - \(error.localizedDescription)")
             return false
         }
     }
@@ -158,12 +141,10 @@ actor HealthChecker {
 
             if let httpResponse = response as? HTTPURLResponse {
                 let isHealthy = (200...499).contains(httpResponse.statusCode)
-                print("🏥 [Health] \(name): HTTP \(httpResponse.statusCode) (GET) -> \(isHealthy ? "online" : "offline")")
                 return isHealthy
             }
             return false
         } catch {
-            print("🏥 [Health] \(name): GET fallback failed - \(error.localizedDescription)")
             return false
         }
     }

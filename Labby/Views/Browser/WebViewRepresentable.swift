@@ -50,18 +50,19 @@ struct WebViewRepresentable: UIViewRepresentable {
     }
 
     class Coordinator: NSObject, WKNavigationDelegate {
-        var tab: BrowserTab
+        weak var tab: BrowserTab?
 
         init(tab: BrowserTab) {
             self.tab = tab
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            tab.isLoading = true
+            tab?.isLoading = true
             updateNavigationState(webView)
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard let tab else { return }
             tab.isLoading = false
             tab.title = webView.title
             updateNavigationState(webView)
@@ -70,18 +71,18 @@ struct WebViewRepresentable: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            tab.isLoading = false
+            tab?.isLoading = false
             updateNavigationState(webView)
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            tab.isLoading = false
+            tab?.isLoading = false
             updateNavigationState(webView)
         }
 
         private func updateNavigationState(_ webView: WKWebView) {
-            tab.canGoBack = webView.canGoBack
-            tab.canGoForward = webView.canGoForward
+            tab?.canGoBack = webView.canGoBack
+            tab?.canGoForward = webView.canGoForward
         }
     }
 }
@@ -95,7 +96,7 @@ enum SafeAreaInjector {
     static let cssInjectionScript: String = """
     (function() {
         // Check if we've already injected (avoid double-padding on navigation)
-        if (document.getElementById('homelabhub-safe-area-style')) return;
+        if (document.getElementById('labby-safe-area-style')) return;
 
         // Get computed padding of body to check if page already has top padding
         const body = document.body;
@@ -122,7 +123,7 @@ enum SafeAreaInjector {
 
         // Inject CSS that adds safe area padding
         const style = document.createElement('style');
-        style.id = 'homelabhub-safe-area-style';
+        style.id = 'labby-safe-area-style';
         style.textContent = `
             body {
                 padding-top: env(safe-area-inset-top, 47px) !important;

@@ -11,6 +11,7 @@ struct ConnectionSetupView: View {
 
     @State private var name = "My Homepage"
     @State private var urlString = ""
+    @State private var trustSelfSignedCerts = true
     @State private var isValidating = false
     @State private var validationError: String?
     @State private var isValid = false
@@ -40,6 +41,14 @@ struct ConnectionSetupView: View {
                     Text("Connection Details")
                 } footer: {
                     Text("Enter the URL of your Homepage instance (e.g., http://192.168.1.100:3000)")
+                }
+
+                Section {
+                    Toggle("Trust Self-Signed Certificates", isOn: $trustSelfSignedCerts)
+                } header: {
+                    Text("Security")
+                } footer: {
+                    Text("Enable this if your server uses a self-signed SSL certificate. Only affects connections to this server.")
                 }
 
                 Section {
@@ -93,6 +102,7 @@ struct ConnectionSetupView: View {
                 if let connection {
                     name = connection.name
                     urlString = connection.baseURLString
+                    trustSelfSignedCerts = connection.trustSelfSignedCertificates
                     isValid = true // Assume existing connection is valid
                 }
             }
@@ -110,8 +120,10 @@ struct ConnectionSetupView: View {
             normalizedURL = "http://" + normalizedURL
         }
 
-        guard let url = URL(string: normalizedURL) else {
-            validationError = "Invalid URL format"
+        guard let url = URL(string: normalizedURL),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme) else {
+            validationError = "Only HTTP and HTTPS URLs are supported"
             isValidating = false
             return
         }
@@ -119,9 +131,14 @@ struct ConnectionSetupView: View {
         // Update the text field with normalized URL
         urlString = normalizedURL
 
+        // Temporarily trust this host during validation if toggle is on
+        if trustSelfSignedCerts, let host = url.host {
+            TrustedDomainManager.shared.trustHost(host)
+        }
+
         // Try to connect
         do {
-            let (_, response) = try await InsecureURLSession.shared.data(from: url)
+            let (_, response) = try await LabbyURLSession.shared.data(from: url)
 
             if let httpResponse = response as? HTTPURLResponse {
                 if (200...299).contains(httpResponse.statusCode) {
@@ -142,6 +159,16 @@ struct ConnectionSetupView: View {
             // Update existing connection
             existing.name = name
             existing.baseURLString = urlString
+            existing.trustSelfSignedCertificates = trustSelfSignedCerts
+
+            // Update trusted domains based on setting
+            if let host = existing.baseURL?.host {
+                if trustSelfSignedCerts {
+                    TrustedDomainManager.shared.trustHost(host)
+                } else {
+                    TrustedDomainManager.shared.untrustHost(host)
+                }
+            }
 
             // Trigger sync after updating
             Task {
@@ -151,8 +178,14 @@ struct ConnectionSetupView: View {
             // Create new connection
             let newConnection = HomepageConnection(
                 baseURLString: urlString,
-                name: name
+                name: name,
+                trustSelfSignedCertificates: trustSelfSignedCerts
             )
+
+            // Register trusted domain if enabled
+            if trustSelfSignedCerts, let host = newConnection.baseURL?.host {
+                TrustedDomainManager.shared.trustHost(host)
+            }
 
             modelContext.insert(newConnection)
 
@@ -175,6 +208,7 @@ struct AddServiceView: View {
     @State private var urlString = ""
     @State private var category = ""
     @State private var iconSymbol = "app.fill"
+    @State private var validationError: String?
 
     private let commonSymbols = [
         "app.fill", "play.tv", "film", "tv", "movieclapper",
@@ -194,6 +228,15 @@ struct AddServiceView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .onChange(of: urlString) {
+                            validationError = nil
+                        }
+
+                    if let error = validationError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
 
                     TextField("Category (optional)", text: $category)
                 } header: {
@@ -243,6 +286,14 @@ struct AddServiceView: View {
         var normalizedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         if !normalizedURL.hasPrefix("http://") && !normalizedURL.hasPrefix("https://") {
             normalizedURL = "http://" + normalizedURL
+        }
+
+        // Validate URL scheme
+        guard let url = URL(string: normalizedURL),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme) else {
+            validationError = "Only HTTP and HTTPS URLs are supported"
+            return
         }
 
         let service = Service(
