@@ -170,6 +170,7 @@ struct SettingsView: View {
                         showingClearDataAlert = true
                     } label: {
                         Label("Clear All Data", systemImage: "trash")
+                            .foregroundStyle(.red)
                     }
                 } header: {
                     RetroSectionHeader("Data", icon: "cylinder.split.1x2")
@@ -178,6 +179,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingAddConnection) {
                 ConnectionSetupView()
             }

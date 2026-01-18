@@ -15,13 +15,9 @@ struct SearchResultsView: View {
     var body: some View {
         Group {
             if searchText.isEmpty {
-                ContentUnavailableView(
-                    "Search Services",
-                    systemImage: "magnifyingglass",
-                    description: Text("Type to search your homelab services")
-                )
+                EmptySearchView()
             } else if filteredServices.isEmpty {
-                ContentUnavailableView.search(text: searchText)
+                EmptySearchResultsView(searchText: searchText)
             } else {
                 List(filteredServices) { service in
                     ServiceSearchRow(service: service)
@@ -29,6 +25,7 @@ struct SearchResultsView: View {
             }
         }
         .navigationTitle("Search")
+        .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search services")
     }
 }
@@ -93,6 +90,64 @@ struct ServiceSearchRow: View {
         case "storage": return "externaldrive.fill"
         default: return "square.grid.2x2"
         }
+    }
+}
+
+// MARK: - Empty Search View
+
+struct EmptySearchView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundStyle(primaryColor.opacity(0.6))
+
+            VStack(spacing: 8) {
+                Text("Search Services")
+                    .retroStyle(.title2, weight: .bold)
+
+                Text("Type to search your homelab services")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Empty Search Results View
+
+struct EmptySearchResultsView: View {
+    let searchText: String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 8) {
+                Text("No Results")
+                    .retroStyle(.title2, weight: .bold)
+
+                Text("No services match \"\(searchText)\"")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

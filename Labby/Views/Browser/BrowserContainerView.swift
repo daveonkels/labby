@@ -359,7 +359,7 @@ struct EmptyBrowserView: View {
     private var descriptionText: some View {
         VStack(spacing: 8) {
             Text("No Open Tabs")
-                .retroStyle(.title3, weight: .bold)
+                .retroStyle(.title2, weight: .bold)
 
             Text("Tap a service on the Dashboard to open it here")
                 .font(.subheadline)

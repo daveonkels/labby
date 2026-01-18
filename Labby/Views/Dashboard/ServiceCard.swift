@@ -184,19 +184,33 @@ struct ServiceIcon: View {
 
 /// Loads an icon with automatic dark/light mode variant support
 /// Tries themed variant first, falls back to original if not available
+/// Includes automatic retry on failure and pull-to-refresh support
 struct ThemedAsyncImage: View {
     let originalURL: URL
     let colorScheme: ColorScheme
 
     @State private var useFallback = false
+    @State private var retryCount = 0
+    @State private var forceReloadToken = UUID()
 
     private var themedURL: URL {
         guard !useFallback else { return originalURL }
         return IconURLTransformer.themedURL(from: originalURL, for: colorScheme)
     }
 
+    /// URL with cache-busting query param for retries
+    private var cacheBreakingURL: URL {
+        guard retryCount > 0,
+              var components = URLComponents(url: themedURL, resolvingAgainstBaseURL: false) else {
+            return themedURL
+        }
+        let existingItems = components.queryItems ?? []
+        components.queryItems = existingItems + [URLQueryItem(name: "_r", value: "\(retryCount)")]
+        return components.url ?? themedURL
+    }
+
     var body: some View {
-        AsyncImage(url: themedURL) { phase in
+        AsyncImage(url: cacheBreakingURL) { phase in
             switch phase {
             case .success(let image):
                 image
@@ -208,6 +222,14 @@ struct ThemedAsyncImage: View {
                     ProgressView()
                         .scaleEffect(0.8)
                         .onAppear { useFallback = true }
+                } else if retryCount < 2 {
+                    // Retry up to 2 times with delay
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .task {
+                            try? await Task.sleep(for: .seconds(1))
+                            retryCount += 1
+                        }
                 } else {
                     DefaultServiceIcon()
                 }
@@ -218,12 +240,26 @@ struct ThemedAsyncImage: View {
                 DefaultServiceIcon()
             }
         }
-        .id(themedURL) // Force reload when URL changes
+        .id(forceReloadToken) // Force reload when token changes
         .onChange(of: colorScheme) { _, _ in
-            // Reset fallback state when color scheme changes
+            // Reset state when color scheme changes
+            useFallback = false
+            retryCount = 0
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .reloadServiceIcons)) { _ in
+            // Force reload when pull-to-refresh triggers
+            forceReloadToken = UUID()
+            retryCount = 0
             useFallback = false
         }
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    /// Posted when service icons should be reloaded (e.g., after pull-to-refresh)
+    static let reloadServiceIcons = Notification.Name("reloadServiceIcons")
 }
 
 /// Transforms icon URLs to their dark/light mode variants

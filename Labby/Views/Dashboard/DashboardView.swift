@@ -16,6 +16,7 @@ struct DashboardView: View {
     @Binding var searchText: String
     @State private var isRefreshing = false
     @State private var healthFilter: HealthFilter? = nil
+    @State private var isReady = false
 
     private var isFilterActive: Bool {
         healthFilter != nil
@@ -70,87 +71,109 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12, pinnedViews: [.sectionHeaders]) {
-                        // Custom header when filter is active
-                        HStack {
-                            Text(dashboardTitle)
-                                .font(.largeTitle.weight(.bold))
-
-                            Spacer()
-
-                            StatusSummaryCard(
-                                online: healthStats.online,
-                                offline: healthStats.offline,
-                                selectedFilter: $healthFilter
-                            )
-                        }
-                        .padding(.bottom, 8)
-                        .opacity(isFilterActive ? 1 : 0)
-                        .frame(height: isFilterActive ? nil : 0)
-                        .clipped()
-                        .id("top")
-
-                        if services.isEmpty {
-                            EmptyDashboardView()
-                        } else {
-                            // Show search results or grouped view
-                            if !searchText.isEmpty || isFilterActive {
-                                ServiceGridView(services: filteredServices)
-                            } else {
-                                ForEach(groupedServices, id: \.0) { category, categoryServices in
-                                    Section {
-                                        ServiceGridView(services: categoryServices)
-                                    } header: {
-                                        CategoryHeader(
-                                            title: category,
-                                            count: categoryServices.count,
-                                            onlineCount: categoryServices.filter { $0.isHealthy == true }.count
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Bookmarks section
-                            if !bookmarks.isEmpty && !isFilterActive && searchText.isEmpty {
-                                BookmarksSection(groupedBookmarks: groupedBookmarks)
-                                    .padding(.top, 24)
-                            }
-
-                            // Status filter at the bottom (only when no filter active)
-                            StatusSummaryCard(
-                                online: healthStats.online,
-                                offline: healthStats.offline,
-                                selectedFilter: $healthFilter
-                            )
-                            .padding(.top, 16)
-                            .opacity(isFilterActive ? 0 : 1)
-                            .frame(height: isFilterActive ? 0 : nil)
-                            .clipped()
-                        }
+            Group {
+                if !isReady {
+                    // Brief loading state to allow network permission prompt to complete
+                    VStack {
+                        ProgressView()
+                        Text("Loading...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 8)
                     }
-                    .padding()
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
-                }
-                .background {
-                    DashboardBackground()
-                }
-                .onChange(of: healthFilter) {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        proxy.scrollTo("top", anchor: .top)
-                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    dashboardContent
                 }
             }
             .navigationTitle(isFilterActive ? "" : dashboardTitle)
-            .navigationBarTitleDisplayMode(isFilterActive ? .inline : .large)
+            .navigationBarTitleDisplayMode(.inline)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
             .refreshable {
                 await refreshServices()
             }
             .task {
+                // Brief delay to allow network permission prompt to complete before loading icons
+                try? await Task.sleep(for: .milliseconds(500))
+                isReady = true
                 // Start health monitoring when dashboard appears
                 await HealthChecker.shared.startMonitoring(modelContext: modelContext)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var dashboardContent: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12, pinnedViews: [.sectionHeaders]) {
+                    // Custom header when filter is active
+                    HStack {
+                        Text(dashboardTitle)
+                            .font(.largeTitle.weight(.bold))
+
+                        Spacer()
+
+                        StatusSummaryCard(
+                            online: healthStats.online,
+                            offline: healthStats.offline,
+                            selectedFilter: $healthFilter
+                        )
+                    }
+                    .padding(.bottom, 8)
+                    .opacity(isFilterActive ? 1 : 0)
+                    .frame(height: isFilterActive ? nil : 0)
+                    .clipped()
+                    .id("top")
+
+                    if services.isEmpty {
+                        EmptyDashboardView()
+                    } else {
+                        // Show search results or grouped view
+                        if !searchText.isEmpty || isFilterActive {
+                            ServiceGridView(services: filteredServices)
+                        } else {
+                            ForEach(groupedServices, id: \.0) { category, categoryServices in
+                                Section {
+                                    ServiceGridView(services: categoryServices)
+                                } header: {
+                                    CategoryHeader(
+                                        title: category,
+                                        count: categoryServices.count,
+                                        onlineCount: categoryServices.filter { $0.isHealthy == true }.count
+                                    )
+                                }
+                            }
+                        }
+
+                        // Bookmarks section
+                        if !bookmarks.isEmpty && !isFilterActive && searchText.isEmpty {
+                            BookmarksSection(groupedBookmarks: groupedBookmarks)
+                                .padding(.top, 24)
+                        }
+
+                        // Status filter at the bottom (only when no filter active)
+                        StatusSummaryCard(
+                            online: healthStats.online,
+                            offline: healthStats.offline,
+                            selectedFilter: $healthFilter
+                        )
+                        .padding(.top, 16)
+                        .opacity(isFilterActive ? 0 : 1)
+                        .frame(height: isFilterActive ? 0 : nil)
+                        .clipped()
+                    }
+                }
+                .padding()
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
+            }
+            .background {
+                DashboardBackground()
+            }
+            .onChange(of: healthFilter) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    proxy.scrollTo("top", anchor: .top)
+                }
             }
         }
     }
@@ -160,6 +183,8 @@ struct DashboardView: View {
         await SyncManager.shared.syncAllConnections(modelContext: modelContext)
         // Run health checks after sync
         await HealthChecker.shared.checkAllServices(modelContext: modelContext)
+        // Force icon reload after sync
+        NotificationCenter.default.post(name: .reloadServiceIcons, object: nil)
         isRefreshing = false
     }
 }
