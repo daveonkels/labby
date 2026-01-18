@@ -147,23 +147,13 @@ struct SettingsView: View {
                     }
                 }
 
-                // App Info
+                // About
                 Section {
-                    LabeledContent {
-                        Text("1.0.0")
-                            .foregroundStyle(.secondary)
+                    NavigationLink {
+                        AboutView()
                     } label: {
-                        Label("Version", systemImage: "info.circle")
+                        Label("About HomeLabHub", systemImage: "info.circle")
                     }
-
-                    LabeledContent {
-                        Text("1")
-                            .foregroundStyle(.secondary)
-                    } label: {
-                        Label("Build", systemImage: "hammer")
-                    }
-                } header: {
-                    Label("About", systemImage: "app.badge")
                 }
 
                 // Danger Zone
