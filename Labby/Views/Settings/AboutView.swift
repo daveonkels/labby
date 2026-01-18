@@ -30,6 +30,25 @@ struct AboutView: View {
                 )
             }
 
+            // Powered By section
+            Section {
+                LinkRow(
+                    title: "Homepage",
+                    icon: "square.grid.2x2",
+                    url: URL(string: "https://gethomepage.dev")!
+                )
+
+                LinkRow(
+                    title: "Homepage on GitHub",
+                    icon: "chevron.left.forwardslash.chevron.right",
+                    url: URL(string: "https://github.com/gethomepage/homepage")!
+                )
+            } header: {
+                RetroSectionHeader("Powered By", icon: "bolt.fill")
+            } footer: {
+                Text("Labby syncs with Homepage, an open-source dashboard for self-hosted services.")
+            }
+
             // Legal section
             Section {
                 LinkRow(

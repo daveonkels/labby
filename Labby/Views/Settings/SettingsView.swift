@@ -73,9 +73,16 @@ struct SettingsView: View {
                 } header: {
                     RetroSectionHeader("Homepage Connection", icon: "link")
                 } footer: {
-                    Text(connections.isEmpty
-                         ? "Connect to your Homepage instance to sync services automatically."
-                         : "Swipe to edit or delete.")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(connections.isEmpty
+                             ? "Connect to your Homepage instance to sync services automatically."
+                             : "Swipe to edit or delete.")
+
+                        Link(destination: URL(string: "https://gethomepage.dev")!) {
+                            Text("Learn more about Homepage")
+                                .font(.caption)
+                        }
+                    }
                 }
 
                 // Manual Services

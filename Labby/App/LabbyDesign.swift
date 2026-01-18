@@ -90,6 +90,38 @@ struct RetroSectionHeader: View {
     }
 }
 
+// MARK: - Homepage Info Component
+
+/// Reusable view that explains what Homepage is and provides links to learn more
+struct HomepageInfoView: View {
+    @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Homepage is a free, open-source dashboard application for organizing and monitoring your self-hosted services. Labby syncs with Homepage to automatically import your services.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+                Button {
+                    openURL(URL(string: "https://gethomepage.dev")!)
+                } label: {
+                    Label("Website", systemImage: "globe")
+                }
+
+                Button {
+                    openURL(URL(string: "https://github.com/gethomepage/homepage")!)
+                } label: {
+                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+            }
+            .buttonStyle(.bordered)
+            .tint(LabbyColors.primary(for: colorScheme))
+        }
+    }
+}
+
 // MARK: - Hex Color Extension
 
 extension Color {

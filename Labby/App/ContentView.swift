@@ -91,6 +91,7 @@ struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allSettings: [AppSettings]
     @State private var showingSetup = false
+    @State private var showingHomepageInfo = false
 
     private let features = [
         ("square.grid.2x2.fill", "Dashboard", "View all your services at a glance"),
@@ -132,7 +133,17 @@ struct OnboardingView: View {
                 // Features list
                 VStack(spacing: 16) {
                     ForEach(features, id: \.0) { icon, title, description in
-                        FeatureRow(icon: icon, title: title, description: description)
+                        if title == "Auto Sync" {
+                            FeatureRow(
+                                icon: icon,
+                                title: title,
+                                description: description,
+                                showInfoButton: true,
+                                onInfoTap: { showingHomepageInfo = true }
+                            )
+                        } else {
+                            FeatureRow(icon: icon, title: title, description: description)
+                        }
                     }
                 }
                 .padding(.horizontal, 24)
@@ -156,6 +167,9 @@ struct OnboardingView: View {
         .sheet(isPresented: $showingSetup) {
             ConnectionSetupView()
         }
+        .sheet(isPresented: $showingHomepageInfo) {
+            HomepageInfoSheet()
+        }
     }
 
     private func skipOnboarding() {
@@ -173,6 +187,8 @@ struct FeatureRow: View {
     let icon: String
     let title: String
     let description: String
+    var showInfoButton: Bool = false
+    var onInfoTap: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -201,7 +217,50 @@ struct FeatureRow: View {
             }
 
             Spacer()
+
+            if showInfoButton {
+                Button {
+                    onInfoTap?()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.title3)
+                        .foregroundStyle(primaryColor)
+                }
+                .buttonStyle(.plain)
+            }
         }
+    }
+}
+
+/// Sheet view for displaying Homepage information
+struct HomepageInfoSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("What is Homepage?")
+                        .retroStyle(.title2, weight: .bold)
+
+                    HomepageInfoView()
+
+                    Text("Don't have Homepage yet? No problem! You can add services manually in Labby and set up Homepage later.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(24)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

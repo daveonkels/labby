@@ -15,12 +15,23 @@ struct ConnectionSetupView: View {
     @State private var isValidating = false
     @State private var validationError: String?
     @State private var isValid = false
+    @State private var showingHomepageInfo = false
 
     private var isEditing: Bool { connection != nil }
 
     var body: some View {
         NavigationStack {
             Form {
+                // What is Homepage? - expandable info section
+                Section {
+                    DisclosureGroup(isExpanded: $showingHomepageInfo) {
+                        HomepageInfoView()
+                            .padding(.vertical, 8)
+                    } label: {
+                        Label("What is Homepage?", systemImage: "questionmark.circle")
+                    }
+                }
+
                 Section {
                     TextField("Name", text: $name)
                         .textContentType(.name)
