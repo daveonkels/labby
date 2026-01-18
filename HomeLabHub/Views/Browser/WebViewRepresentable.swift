@@ -7,8 +7,8 @@ struct WebViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
 
-        // Use non-persistent data store for now
-        // For persistent cookies, use WKWebsiteDataStore.default()
+        // Use persistent data store for cookies, sessions, and authentication
+        // This preserves login state across app launches
         configuration.websiteDataStore = .default()
 
         // Allow inline media playback
