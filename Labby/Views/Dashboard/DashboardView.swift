@@ -326,7 +326,7 @@ struct GradientPresetBackground: View {
                     )
                     .frame(width: geo.size.width * 0.8)
                     .position(x: geo.size.width * 0.9, y: geo.size.height * 0.1)
-                    .blur(radius: 60)
+                    .blur(radius: 30)
 
                 Circle()
                     .fill(
@@ -339,8 +339,9 @@ struct GradientPresetBackground: View {
                     )
                     .frame(width: geo.size.width * 0.6)
                     .position(x: geo.size.width * 0.1, y: geo.size.height * 0.8)
-                    .blur(radius: 50)
+                    .blur(radius: 25)
             }
+            .drawingGroup() // Rasterize to prevent expensive blur recalculation
         } else if preset.isRadial {
             GeometryReader { geo in
                 RadialGradient(

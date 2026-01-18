@@ -233,7 +233,7 @@ struct OnboardingBackground: View {
                     )
                     .frame(width: geo.size.width)
                     .position(x: geo.size.width * 0.5, y: geo.size.height * 0.2)
-                    .blur(radius: 80)
+                    .blur(radius: 40)
 
                 Circle()
                     .fill(
@@ -246,8 +246,9 @@ struct OnboardingBackground: View {
                     )
                     .frame(width: geo.size.width * 0.8)
                     .position(x: geo.size.width * 0.8, y: geo.size.height * 0.7)
-                    .blur(radius: 60)
+                    .blur(radius: 30)
             }
+            .drawingGroup() // Rasterize to prevent expensive blur recalculation
             .ignoresSafeArea()
         }
     }

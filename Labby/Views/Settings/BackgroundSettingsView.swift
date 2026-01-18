@@ -329,6 +329,7 @@ struct GradientBackgroundPreview: View {
                         .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
                         .blur(radius: 25)
                 }
+                .drawingGroup() // Rasterize to prevent expensive blur recalculation
             } else if preset.isRadial {
                 RadialGradient(
                     colors: preset.colors.map { $0.opacity(0.3 * opacityScale) } + [Color.clear],
