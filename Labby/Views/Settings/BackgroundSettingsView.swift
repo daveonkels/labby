@@ -31,7 +31,7 @@ struct BackgroundSettingsView: View {
                     .frame(height: 200)
                     .listRowInsets(EdgeInsets())
             } header: {
-                Text("Preview")
+                RetroSectionHeader("Preview", icon: "eye")
             }
 
             // Current Selection
@@ -45,7 +45,7 @@ struct BackgroundSettingsView: View {
                     }
                 }
             } header: {
-                Text("Current Background")
+                RetroSectionHeader("Current Background", icon: "checkmark.circle")
             }
 
             // Gradient Presets Section
@@ -61,7 +61,7 @@ struct BackgroundSettingsView: View {
                 )
                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             } header: {
-                Text("Gradients")
+                RetroSectionHeader("Gradients", icon: "circle.lefthalf.filled")
             }
 
             // Intensity Section
@@ -99,7 +99,7 @@ struct BackgroundSettingsView: View {
                 }
                 .padding(.vertical, 4)
             } header: {
-                Text("Intensity")
+                RetroSectionHeader("Intensity", icon: "slider.horizontal.3")
             } footer: {
                 Text("Adjusts how visible the background appears behind the dashboard content.")
             }
@@ -132,7 +132,7 @@ struct BackgroundSettingsView: View {
                     }
                 }
             } header: {
-                Text("Options")
+                RetroSectionHeader("Options", icon: "ellipsis.circle")
             } footer: {
                 Text("Custom backgrounds will be displayed behind your dashboard with a subtle overlay for readability.")
             }
@@ -269,7 +269,7 @@ struct BackgroundPreview: View {
             // Sample content overlay
             VStack {
                 Text("Dashboard")
-                    .font(.largeTitle.bold())
+                    .retroStyle(.largeTitle, weight: .black)
                     .foregroundStyle(.primary)
 
                 HStack(spacing: 12) {

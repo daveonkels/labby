@@ -60,7 +60,7 @@ struct ServiceSearchRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(service.name)
-                        .font(.body.weight(.medium))
+                        .retroStyle(.body, weight: .medium)
                         .foregroundStyle(.primary)
 
                     if let category = service.category {

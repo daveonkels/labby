@@ -56,7 +56,9 @@ struct AboutView: View {
             } footer: {
                 VStack(spacing: 4) {
                     Text("Version \(appVersion) (\(buildNumber))")
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
                     Text("© \(copyrightYears) Dave Onkels. All Rights Reserved.")
+                        .font(.footnote)
                     Image("AboutAppIcon")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -65,9 +67,9 @@ struct AboutView: View {
                         .padding(.top, 12)
                     Text("Dedicated to Mugzy")
                         .italic()
+                        .font(.footnote)
                         .padding(.top, 8)
                 }
-                .font(.footnote)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 24)
@@ -107,10 +109,10 @@ struct LicensesView: View {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("SwiftSoup")
-                        .font(.headline)
+                        .retroStyle(.headline, weight: .semibold)
 
                     Text("MIT License")
-                        .font(.subheadline)
+                        .retroStyle(.subheadline, weight: .medium)
                         .foregroundStyle(.secondary)
 
                     Text("A pure Swift HTML Parser, with best of DOM, CSS, and jQuery. Used for parsing Homepage configuration.")
@@ -119,16 +121,16 @@ struct LicensesView: View {
                 }
                 .padding(.vertical, 4)
             } header: {
-                Text("Open Source Libraries")
+                RetroSectionHeader("Open Source Libraries", icon: "chevron.left.forwardslash.chevron.right")
             }
 
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Dashboard Icons")
-                        .font(.headline)
+                        .retroStyle(.headline, weight: .semibold)
 
                     Text("MIT License")
-                        .font(.subheadline)
+                        .retroStyle(.subheadline, weight: .medium)
                         .foregroundStyle(.secondary)
 
                     Text("Service icons provided by homarr-labs/dashboard-icons and selfhst/icons.")
@@ -137,7 +139,7 @@ struct LicensesView: View {
                 }
                 .padding(.vertical, 4)
             } header: {
-                Text("Icon Sources")
+                RetroSectionHeader("Icon Sources", icon: "photo.stack")
             }
         }
         .navigationTitle("Licenses")

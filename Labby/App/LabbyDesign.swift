@@ -1,5 +1,95 @@
 import SwiftUI
 
+// MARK: - Retro Typography System
+
+/// A ViewModifier that applies SF Mono (monospaced) font styling for the retro CRT aesthetic.
+/// Use this for "structure" and "data" elements like headers, status text, and labels.
+struct RetroFont: ViewModifier {
+    var size: CGFloat?
+    var weight: Font.Weight
+    var relativeTo: Font.TextStyle
+
+    init(weight: Font.Weight = .bold, size: CGFloat? = nil, relativeTo: Font.TextStyle = .body) {
+        self.weight = weight
+        self.size = size
+        self.relativeTo = relativeTo
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(
+                size: size ?? Self.defaultSize(for: relativeTo),
+                weight: weight,
+                design: .monospaced
+            ))
+    }
+
+    /// Returns the default system font size for a given text style
+    static func defaultSize(for style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: return 34
+        case .title: return 28
+        case .title2: return 22
+        case .title3: return 20
+        case .headline: return 17
+        case .subheadline: return 15
+        case .body: return 17
+        case .callout: return 16
+        case .footnote: return 13
+        case .caption: return 12
+        case .caption2: return 11
+        @unknown default: return 17
+        }
+    }
+}
+
+extension View {
+    /// Applies retro monospaced styling for the given text style
+    /// - Parameters:
+    ///   - style: The text style to base the size on
+    ///   - weight: The font weight (default: .bold)
+    func retroStyle(_ style: Font.TextStyle = .body, weight: Font.Weight = .bold) -> some View {
+        modifier(RetroFont(weight: weight, relativeTo: style))
+    }
+
+    /// Applies retro monospaced styling with a specific size
+    /// - Parameters:
+    ///   - size: The exact font size to use
+    ///   - weight: The font weight (default: .bold)
+    func retroStyle(size: CGFloat, weight: Font.Weight = .bold) -> some View {
+        modifier(RetroFont(weight: weight, size: size))
+    }
+}
+
+// MARK: - Retro Section Header Style
+
+/// A consistent section header style for settings-like lists
+/// Displays uppercase monospaced text like a config file header
+struct RetroSectionHeader: View {
+    let title: String
+    let icon: String?
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(_ title: String, icon: String? = nil) {
+        self.title = title
+        self.icon = icon
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.caption2.weight(.bold))
+            }
+            Text(title.uppercased())
+                .tracking(0.5)
+        }
+        .font(.system(size: 11, weight: .heavy, design: .monospaced))
+        .foregroundStyle(LabbyColors.primary(for: colorScheme))
+    }
+}
+
 // MARK: - Hex Color Extension
 
 extension Color {

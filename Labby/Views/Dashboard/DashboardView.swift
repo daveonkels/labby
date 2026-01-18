@@ -397,7 +397,7 @@ struct EmptyDashboardView: View {
 
             VStack(spacing: 8) {
                 Text("No Services Yet")
-                    .font(.title2.weight(.semibold))
+                    .retroStyle(.title2, weight: .bold)
 
                 Text("Add services manually or connect to your Homepage dashboard to sync automatically")
                     .font(.subheadline)
@@ -412,7 +412,7 @@ struct EmptyDashboardView: View {
                     SettingsView()
                 } label: {
                     Label("Connect to Homepage", systemImage: "link")
-                        .font(.headline)
+                        .retroStyle(.headline, weight: .bold)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(primaryColor)
@@ -424,7 +424,7 @@ struct EmptyDashboardView: View {
                     AddServiceView()
                 } label: {
                     Label("Add Service Manually", systemImage: "plus.circle")
-                        .font(.subheadline.weight(.medium))
+                        .retroStyle(.subheadline, weight: .medium)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(Color.secondary.opacity(0.1))
@@ -514,13 +514,13 @@ struct CategoryHeader: View {
                     showIconPicker = true
                 } label: {
                     Text(title)
-                        .font(.headline)
+                        .retroStyle(.headline, weight: .semibold)
                         .foregroundStyle(.primary)
                 }
                 .buttonStyle(.plain)
             } else {
                 Text(title)
-                    .font(.headline)
+                    .retroStyle(.headline, weight: .semibold)
                     .foregroundStyle(.primary)
             }
 
@@ -630,7 +630,7 @@ struct BookmarksSection: View {
                 VStack(alignment: .leading, spacing: 10) {
                     // Category header
                     Text(category)
-                        .font(.subheadline.weight(.semibold))
+                        .retroStyle(.subheadline, weight: .semibold)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 4)
 
@@ -659,7 +659,7 @@ struct BookmarksSectionHeader: View {
                 }
 
             Text("Bookmarks")
-                .font(.headline)
+                .retroStyle(.headline, weight: .semibold)
                 .foregroundStyle(.primary)
 
             Spacer()

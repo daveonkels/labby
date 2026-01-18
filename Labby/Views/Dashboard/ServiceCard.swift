@@ -38,7 +38,7 @@ struct ServiceCard: View {
                 // Name + Status
                 VStack(spacing: 6) {
                     Text(service.name)
-                        .font(.subheadline.weight(.semibold))
+                        .retroStyle(.subheadline, weight: .semibold)
                         .lineLimit(1)
                         .foregroundStyle(hasValidURL ? .primary : .secondary)
 

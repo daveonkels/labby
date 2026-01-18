@@ -119,7 +119,7 @@ struct OnboardingView: View {
 
                     VStack(spacing: 8) {
                         Text("Labby")
-                            .font(.largeTitle.weight(.bold))
+                            .retroStyle(.largeTitle, weight: .black)
 
                         Text("Your homelab, one tap away")
                             .font(.title3)
@@ -193,7 +193,7 @@ struct FeatureRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .retroStyle(.subheadline, weight: .semibold)
 
                 Text(description)
                     .font(.caption)

@@ -71,7 +71,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Label("Homepage Connection", systemImage: "link")
+                    RetroSectionHeader("Homepage Connection", icon: "link")
                 } footer: {
                     Text(connections.isEmpty
                          ? "Connect to your Homepage instance to sync services automatically."
@@ -87,7 +87,7 @@ struct SettingsView: View {
                             .foregroundStyle(LabbyColors.primary(for: colorScheme))
                     }
                 } header: {
-                    Label("Manual Services", systemImage: "square.grid.2x2")
+                    RetroSectionHeader("Manual Services", icon: "square.grid.2x2")
                 } footer: {
                     Text("Add services that aren't in your Homepage config.")
                 }
@@ -114,7 +114,7 @@ struct SettingsView: View {
                         Label("Dashboard Background", systemImage: "photo.artframe")
                     }
                 } header: {
-                    Label("Appearance", systemImage: "paintbrush")
+                    RetroSectionHeader("Appearance", icon: "paintbrush")
                 }
 
                 // Stats
@@ -144,7 +144,7 @@ struct SettingsView: View {
                             Label("Manual", systemImage: "hand.raised")
                         }
                     } header: {
-                        Label("Statistics", systemImage: "chart.bar")
+                        RetroSectionHeader("Statistics", icon: "chart.bar")
                     }
                 }
 
@@ -165,7 +165,7 @@ struct SettingsView: View {
                         Label("Clear All Data", systemImage: "trash")
                     }
                 } header: {
-                    Label("Data", systemImage: "cylinder.split.1x2")
+                    RetroSectionHeader("Data", icon: "cylinder.split.1x2")
                 } footer: {
                     Text("This will remove all connections and services. This action cannot be undone.")
                 }

@@ -38,7 +38,7 @@ struct ConnectionSetupView: View {
                             }
                         }
                 } header: {
-                    Text("Connection Details")
+                    RetroSectionHeader("Connection Details", icon: "link")
                 } footer: {
                     Text("Enter the URL of your Homepage instance (e.g., http://192.168.1.100:3000)")
                 }
@@ -46,7 +46,7 @@ struct ConnectionSetupView: View {
                 Section {
                     Toggle("Trust Self-Signed Certificates", isOn: $trustSelfSignedCerts)
                 } header: {
-                    Text("Security")
+                    RetroSectionHeader("Security", icon: "lock.shield")
                 } footer: {
                     Text("Enable this if your server uses a self-signed SSL certificate. Only affects connections to this server.")
                 }
@@ -240,7 +240,7 @@ struct AddServiceView: View {
 
                     TextField("Category (optional)", text: $category)
                 } header: {
-                    Text("Service Details")
+                    RetroSectionHeader("Service Details", icon: "app.fill")
                 }
 
                 Section {
@@ -259,7 +259,7 @@ struct AddServiceView: View {
                         }
                     }
                 } header: {
-                    Text("Icon")
+                    RetroSectionHeader("Icon", icon: "star.fill")
                 }
             }
             .navigationTitle("Add Service")

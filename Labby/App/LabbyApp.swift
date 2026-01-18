@@ -3,6 +3,11 @@ import SwiftData
 
 @main
 struct LabbyApp: App {
+    init() {
+        configureNavigationBarAppearance()
+        configureTabBarAppearance()
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Service.self,
@@ -39,4 +44,51 @@ struct AppRootView: View {
         ContentView()
             .tint(LabbyColors.primary(for: colorScheme))
     }
+}
+
+// MARK: - Appearance Configuration
+
+/// Configures the navigation bar appearance with monospaced fonts for the retro CRT aesthetic
+private func configureNavigationBarAppearance() {
+    let appearance = UINavigationBarAppearance()
+    appearance.configureWithDefaultBackground()
+
+    // Large title (e.g., "Dashboard", "Settings")
+    appearance.largeTitleTextAttributes = [
+        .font: UIFont.monospacedSystemFont(ofSize: 34, weight: .black)
+    ]
+
+    // Inline/standard title
+    appearance.titleTextAttributes = [
+        .font: UIFont.monospacedSystemFont(ofSize: 17, weight: .bold)
+    ]
+
+    UINavigationBar.appearance().scrollEdgeAppearance = appearance
+    UINavigationBar.appearance().standardAppearance = appearance
+    UINavigationBar.appearance().compactAppearance = appearance
+}
+
+/// Configures the tab bar appearance with monospaced fonts
+private func configureTabBarAppearance() {
+    let appearance = UITabBarAppearance()
+    appearance.configureWithDefaultBackground()
+
+    // Tab bar item text attributes
+    let itemAppearance = UITabBarItemAppearance()
+    let normalAttributes: [NSAttributedString.Key: Any] = [
+        .font: UIFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+    ]
+    let selectedAttributes: [NSAttributedString.Key: Any] = [
+        .font: UIFont.monospacedSystemFont(ofSize: 10, weight: .semibold)
+    ]
+
+    itemAppearance.normal.titleTextAttributes = normalAttributes
+    itemAppearance.selected.titleTextAttributes = selectedAttributes
+
+    appearance.stackedLayoutAppearance = itemAppearance
+    appearance.inlineLayoutAppearance = itemAppearance
+    appearance.compactInlineLayoutAppearance = itemAppearance
+
+    UITabBar.appearance().scrollEdgeAppearance = appearance
+    UITabBar.appearance().standardAppearance = appearance
 }
