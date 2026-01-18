@@ -307,6 +307,10 @@ struct HomepageClient {
                         // Simple Icons - use simpleicons.org CDN
                         let iconName = String(icon.dropFirst(3)) // Remove "si-" prefix
                         iconURL = "https://cdn.simpleicons.org/\(iconName)"
+                    } else if icon.hasPrefix("sh-") {
+                        // Self-hosted icons from selfhst/icons repository
+                        let iconName = normalizeIconName(String(icon.dropFirst(3))) // Remove "sh-" prefix
+                        iconURL = "https://cdn.jsdelivr.net/gh/selfhst/icons@main/png/\(iconName).png"
                     } else if icon.hasPrefix("mdi-") {
                         // Material Design Icons - try dashboard-icons as fallback
                         let iconName = String(icon.dropFirst(4)) // Remove "mdi-" prefix

@@ -240,9 +240,9 @@ enum IconURLTransformer {
             return url
         }
 
-        // Dashboard Icons: add -light suffix for dark mode
+        // Dashboard Icons & selfhst/icons: add -light suffix for dark mode
         // Format: .../png/{icon}.png -> .../png/{icon}-light.png
-        if urlString.contains("dashboard-icons") && urlString.hasSuffix(".png") {
+        if (urlString.contains("dashboard-icons") || urlString.contains("selfhst/icons@main")) && urlString.hasSuffix(".png") {
             // Don't transform if already has a variant suffix
             if urlString.contains("-light.png") || urlString.contains("-dark.png") {
                 return url
