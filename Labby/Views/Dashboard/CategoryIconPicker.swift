@@ -5,6 +5,7 @@ struct CategoryIconPicker: View {
     let currentIcon: String?
     let onSelect: (String?) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
 
@@ -44,10 +45,10 @@ struct CategoryIconPicker: View {
                                         Image(systemName: "eye.slash")
                                             .font(.title2)
                                             .frame(width: 56, height: 56)
-                                            .foregroundStyle(currentIcon == nil ? .white : .secondary)
+                                            .foregroundStyle(currentIcon == nil ? (colorScheme == .dark ? .black : .white) : .secondary)
                                             .background {
                                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                    .fill(currentIcon == nil ? Color.green : Color.secondary.opacity(0.15))
+                                                    .fill(currentIcon == nil ? LabbyColors.primary(for: colorScheme) : Color.secondary.opacity(0.15))
                                             }
                                         Text("No Icon")
                                             .font(.caption)
@@ -261,15 +262,17 @@ struct SymbolButton: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.title2)
                 .frame(width: 56, height: 56)
-                .foregroundStyle(isSelected ? .white : .primary)
+                .foregroundStyle(isSelected ? (colorScheme == .dark ? .black : .white) : .primary)
                 .background {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isSelected ? Color.green : Color.secondary.opacity(0.15))
+                        .fill(isSelected ? LabbyColors.primary(for: colorScheme) : Color.secondary.opacity(0.15))
                 }
         }
         .buttonStyle(.plain)

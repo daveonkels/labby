@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct ConnectionSetupView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -56,7 +57,7 @@ struct ConnectionSetupView: View {
                                 ProgressView()
                             } else if isValid {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(LabbyColors.primary(for: colorScheme))
                             } else if validationError != nil {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundStyle(.red)
@@ -166,6 +167,7 @@ struct ConnectionSetupView: View {
 }
 
 struct AddServiceView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -207,7 +209,7 @@ struct AddServiceView: View {
                                 Image(systemName: symbol)
                                     .font(.title2)
                                     .frame(width: 44, height: 44)
-                                    .background(iconSymbol == symbol ? Color.green.opacity(0.2) : Color.clear)
+                                    .background(iconSymbol == symbol ? LabbyColors.primary(for: colorScheme).opacity(0.2) : Color.clear)
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                             .buttonStyle(.plain)

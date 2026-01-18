@@ -64,7 +64,8 @@ enum GradientPreset: String, Codable, CaseIterable {
     var colors: [Color] {
         switch self {
         case .default:
-            return [.green, .mint]
+            // Phosphor Neon (#4AF626) to Deep Phosphor (#28C740) - retro CRT aesthetic
+            return [Color(red: 0.290, green: 0.965, blue: 0.149), Color(red: 0.157, green: 0.780, blue: 0.251)]
         case .sunset:
             return [Color(red: 1.0, green: 0.6, blue: 0.2), Color(red: 0.95, green: 0.4, blue: 0.5), Color(red: 0.6, green: 0.3, blue: 0.7)]
         case .ocean:

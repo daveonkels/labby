@@ -113,7 +113,7 @@ struct OnboardingView: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 180, height: 180)
                         .clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
-                        .shadow(color: .green.opacity(0.5), radius: 20, y: 10)
+                        .shadow(color: LabbyColors.primary(for: colorScheme).opacity(0.5), radius: 20, y: 10)
 
                     VStack(spacing: 8) {
                         Text("Labby")
@@ -139,34 +139,12 @@ struct OnboardingView: View {
 
                 // CTA
                 VStack(spacing: 16) {
-                    Button {
+                    LabbyButton(title: "Connect to Homepage", icon: "link") {
                         showingSetup = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "link")
-                            Text("Connect to Homepage")
-                        }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background {
-                            LinearGradient(
-                                colors: [Color.green, Color.mint],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        }
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: .green.opacity(0.4), radius: 12, y: 6)
                     }
 
-                    Button {
+                    LabbySecondaryButton(title: "or add services manually") {
                         skipOnboarding()
-                    } label: {
-                        Text("or add services manually")
-                            .font(.subheadline)
-                            .foregroundStyle(.green)
                     }
                 }
                 .padding(.horizontal, 32)
@@ -194,15 +172,21 @@ struct FeatureRow: View {
     let title: String
     let description: String
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
+
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(.green)
+                .foregroundStyle(primaryColor)
                 .frame(width: 44, height: 44)
                 .background {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.green.opacity(0.1))
+                        .fill(primaryColor.opacity(0.1))
                 }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -222,6 +206,14 @@ struct FeatureRow: View {
 struct OnboardingBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
+
+    private var secondaryColor: Color {
+        colorScheme == .dark ? LabbyColors.darkGradientEnd : LabbyColors.lightGradientStart
+    }
+
     var body: some View {
         ZStack {
             Color(.systemBackground)
@@ -231,7 +223,7 @@ struct OnboardingBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.green.opacity(0.2), Color.clear],
+                            colors: [primaryColor.opacity(0.2), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.5
@@ -244,7 +236,7 @@ struct OnboardingBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.mint.opacity(0.15), Color.clear],
+                            colors: [secondaryColor.opacity(0.15), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.4

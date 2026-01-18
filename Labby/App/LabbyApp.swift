@@ -25,9 +25,18 @@ struct LabbyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .tint(.green)
+            AppRootView()
         }
         .modelContainer(sharedModelContainer)
+    }
+}
+
+/// Root view that applies the adaptive tint color based on color scheme
+struct AppRootView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ContentView()
+            .tint(LabbyColors.primary(for: colorScheme))
     }
 }

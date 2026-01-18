@@ -178,7 +178,7 @@ struct StatusSummaryCard: View {
             StatusPill(
                 icon: "checkmark.circle.fill",
                 count: online,
-                color: .green,
+                color: LabbyColors.primary(for: colorScheme),
                 accessibilityLabel: "Online",
                 isSelected: selectedFilter == .online
             ) {
@@ -297,6 +297,12 @@ struct GradientPresetBackground: View {
     let preset: GradientPreset
     var intensity: Double = 0.5
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
+
     /// Scales gradient opacity based on intensity
     /// At 0: scale by 0.4 (subtle)
     /// At 0.5: scale by 1.0 (normal)
@@ -312,7 +318,7 @@ struct GradientPresetBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.green.opacity(0.15 * opacityScale), Color.clear],
+                            colors: [primaryColor.opacity(0.15 * opacityScale), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.4
@@ -325,7 +331,7 @@ struct GradientPresetBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.green.opacity(0.1 * opacityScale), Color.clear],
+                            colors: [primaryColor.opacity(0.1 * opacityScale), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.3
@@ -355,7 +361,12 @@ struct GradientPresetBackground: View {
 }
 
 struct EmptyDashboardView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isAnimating = false
+
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -364,7 +375,7 @@ struct EmptyDashboardView: View {
                 // Pulsing rings
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .stroke(Color.green.opacity(0.3), lineWidth: 2)
+                        .stroke(primaryColor.opacity(0.3), lineWidth: 2)
                         .frame(width: CGFloat(80 + index * 30), height: CGFloat(80 + index * 30))
                         .scaleEffect(isAnimating ? 1.2 : 0.8)
                         .opacity(isAnimating ? 0 : 0.6)
@@ -379,7 +390,7 @@ struct EmptyDashboardView: View {
                 // Center icon
                 Image(systemName: "square.grid.2x2.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Color.green.gradient)
+                    .foregroundStyle(primaryColor.gradient)
                     .symbolEffect(.bounce, options: .repeating.speed(0.5), value: isAnimating)
             }
             .frame(height: 140)
@@ -404,8 +415,8 @@ struct EmptyDashboardView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.green)
-                        .foregroundStyle(.white)
+                        .background(primaryColor)
+                        .foregroundStyle(colorScheme == .dark ? .black : .white)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
 
@@ -436,6 +447,7 @@ struct CategoryHeader: View {
     var count: Int = 0
     var onlineCount: Int = 0
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @State private var showIconPicker = false
     @State private var savedIconName: String?
@@ -518,7 +530,7 @@ struct CategoryHeader: View {
             if count > 0 {
                 Text("\(onlineCount)/\(count)")
                     .font(.caption.weight(.medium).monospacedDigit())
-                    .foregroundStyle(onlineCount == count ? .green : .secondary)
+                    .foregroundStyle(onlineCount == count ? LabbyColors.primary(for: colorScheme) : .secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background {

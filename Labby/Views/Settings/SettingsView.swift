@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct SettingsView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query private var connections: [HomepageConnection]
     @Query private var services: [Service]
@@ -48,7 +49,7 @@ struct SettingsView: View {
                             showingAddConnection = true
                         } label: {
                             Label("Add Homepage Connection", systemImage: "plus.circle.fill")
-                                .foregroundStyle(Color.green)
+                                .foregroundStyle(LabbyColors.primary(for: colorScheme))
                         }
                     } else {
                         ForEach(connections) { connection in
@@ -65,7 +66,7 @@ struct SettingsView: View {
                                     } label: {
                                         Label("Edit", systemImage: "pencil")
                                     }
-                                    .tint(.green)
+                                    .tint(LabbyColors.primary(for: colorScheme))
                                 }
                         }
                     }
@@ -83,7 +84,7 @@ struct SettingsView: View {
                         showingAddService = true
                     } label: {
                         Label("Add Service Manually", systemImage: "plus.circle.fill")
-                            .foregroundStyle(Color.green)
+                            .foregroundStyle(LabbyColors.primary(for: colorScheme))
                     }
                 } header: {
                     Label("Manual Services", systemImage: "square.grid.2x2")
@@ -130,7 +131,7 @@ struct SettingsView: View {
                         LabeledContent {
                             Text("\(services.filter { $0.isHealthy == true }.count)")
                                 .font(.body.monospacedDigit())
-                                .foregroundStyle(.green)
+                                .foregroundStyle(LabbyColors.primary(for: colorScheme))
                         } label: {
                             Label("Online", systemImage: "checkmark.circle")
                         }
@@ -200,12 +201,14 @@ struct SettingsView: View {
 struct ConnectionRow: View {
     let connection: HomepageConnection
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         HStack(spacing: 12) {
             // Connection icon
             Image(systemName: "link.circle.fill")
                 .font(.title2)
-                .foregroundStyle(.green)
+                .foregroundStyle(LabbyColors.primary(for: colorScheme))
                 .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -232,7 +235,7 @@ struct ConnectionRow: View {
 
             // Sync status indicator
             Circle()
-                .fill(connection.lastSync != nil ? Color.green : Color.orange)
+                .fill(connection.lastSync != nil ? LabbyColors.primary(for: colorScheme) : Color.orange)
                 .frame(width: 8, height: 8)
         }
         .padding(.vertical, 4)

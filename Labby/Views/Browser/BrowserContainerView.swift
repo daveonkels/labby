@@ -126,7 +126,7 @@ struct SwipeableBrowserView: View {
     }
 
     private func closeCurrentTab() {
-        guard let tab = currentTab else { return }
+        guard currentTab != nil else { return }
         closeTab(at: selectedIndex)
     }
 
@@ -312,7 +312,12 @@ struct CloseTabPopover: View {
 }
 
 struct EmptyBrowserView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isAnimating = false
+
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -328,7 +333,7 @@ struct EmptyBrowserView: View {
     private var animatedGlobe: some View {
         ZStack {
             Circle()
-                .stroke(Color.green.opacity(0.2), lineWidth: 2)
+                .stroke(primaryColor.opacity(0.2), lineWidth: 2)
                 .frame(width: 100, height: 100)
 
             orbitingDot
@@ -341,7 +346,7 @@ struct EmptyBrowserView: View {
 
     private var orbitingDot: some View {
         Circle()
-            .fill(Color.green)
+            .fill(primaryColor)
             .frame(width: 8, height: 8)
             .offset(y: -50)
             .rotationEffect(.degrees(isAnimating ? 360 : 0))

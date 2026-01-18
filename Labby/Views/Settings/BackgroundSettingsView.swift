@@ -4,6 +4,7 @@ import PhotosUI
 import ImagePlayground
 
 struct BackgroundSettingsView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query private var allSettings: [AppSettings]
 
@@ -40,7 +41,7 @@ struct BackgroundSettingsView: View {
                     Spacer()
                     if settings.backgroundType != .gradient || settings.gradientPreset != .default {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(LabbyColors.primary(for: colorScheme))
                     }
                 }
             } header: {
@@ -286,6 +287,12 @@ struct GradientBackgroundPreview: View {
     var preset: GradientPreset = .default
     var intensity: Double = 0.5
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
+
     private var opacityScale: Double {
         0.4 + (intensity * 1.2)
     }
@@ -299,7 +306,7 @@ struct GradientBackgroundPreview: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.green.opacity(0.15 * opacityScale), Color.clear],
+                                colors: [primaryColor.opacity(0.15 * opacityScale), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.4
@@ -312,7 +319,7 @@ struct GradientBackgroundPreview: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.green.opacity(0.1 * opacityScale), Color.clear],
+                                colors: [primaryColor.opacity(0.1 * opacityScale), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.3
@@ -388,6 +395,8 @@ struct GradientPresetButton: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Button(action: action) {
             ZStack {
@@ -396,7 +405,7 @@ struct GradientPresetButton: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(isSelected ? Color.green : Color.clear, lineWidth: 3)
+                            .strokeBorder(isSelected ? LabbyColors.primary(for: colorScheme) : Color.clear, lineWidth: 3)
                     }
 
                 if isSelected {
@@ -426,6 +435,12 @@ struct GradientPresetButton: View {
 struct GradientPresetThumbnail: View {
     let preset: GradientPreset
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var primaryColor: Color {
+        LabbyColors.primary(for: colorScheme)
+    }
+
     var body: some View {
         if preset == .default {
             // Special handling for default orb style
@@ -436,7 +451,7 @@ struct GradientPresetThumbnail: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.green.opacity(0.3), Color.clear],
+                                colors: [primaryColor.opacity(0.3), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.4
@@ -449,7 +464,7 @@ struct GradientPresetThumbnail: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.green.opacity(0.25), Color.clear],
+                                colors: [primaryColor.opacity(0.25), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.35

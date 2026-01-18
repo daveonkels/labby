@@ -74,7 +74,7 @@ struct ServiceSearchRow: View {
 
                 // Health indicator
                 Circle()
-                    .fill(service.isHealthy == true ? Color.green : Color.red)
+                    .fill(service.isHealthy == true ? LabbyColors.primary(for: colorScheme) : Color.red)
                     .frame(width: 8, height: 8)
             }
             .contentShape(Rectangle())

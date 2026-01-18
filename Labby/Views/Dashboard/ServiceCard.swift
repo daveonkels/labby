@@ -4,6 +4,7 @@ import UIKit
 struct ServiceCard: View {
     let service: Service
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.selectedTab) private var selectedTab
     @State private var tabManager = TabManager.shared
     @State private var showOpenedToast = false
@@ -60,7 +61,7 @@ struct ServiceCard: View {
                 // Green dot indicator when tab is open
                 if hasOpenTab {
                     Circle()
-                        .fill(Color.green)
+                        .fill(LabbyColors.primary(for: colorScheme))
                         .frame(width: 10, height: 10)
                         .padding(12)
                 }
@@ -272,9 +273,11 @@ struct DefaultServiceIcon: View {
 struct HealthBadge: View {
     let isHealthy: Bool?
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private var statusColor: Color {
         switch isHealthy {
-        case .some(true): return .green
+        case .some(true): return LabbyColors.primary(for: colorScheme)
         case .some(false): return .red
         case .none: return .orange
         }
@@ -350,6 +353,8 @@ struct CloseServiceTabPopover: View {
 }
 
 struct OpenedTabPopover: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
@@ -359,7 +364,7 @@ struct OpenedTabPopover: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
-        .foregroundStyle(.green)
+        .foregroundStyle(LabbyColors.primary(for: colorScheme))
     }
 }
 
