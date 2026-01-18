@@ -8,7 +8,8 @@ struct HomeLabHubApp: App {
             Service.self,
             HomepageConnection.self,
             AppSettings.self,
-            Bookmark.self
+            Bookmark.self,
+            CategoryIconPreference.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

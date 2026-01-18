@@ -34,6 +34,9 @@ final class SyncManager {
             // Sync bookmarks
             await syncBookmarks(parsedBookmarks, modelContext: modelContext)
 
+            // Clean up orphaned category icon preferences (handles renamed categories)
+            await cleanupOrphanedCategoryPreferences(modelContext: modelContext)
+
             // Update connection sync timestamp
             connection.lastSync = Date()
             lastSyncedCount = parsedServices.count + parsedBookmarks.count
@@ -148,6 +151,41 @@ final class SyncManager {
             if deletedCount > 0 {
                 print("🔄 [Sync] Removed \(deletedCount) bookmarks no longer in Homepage")
             }
+        }
+    }
+
+    /// Removes category icon preferences for categories that no longer exist
+    /// This handles the case where a user renames a category in Homepage
+    @MainActor
+    private func cleanupOrphanedCategoryPreferences(modelContext: ModelContext) async {
+        // Get all current category names from services
+        let servicesDescriptor = FetchDescriptor<Service>()
+        let services = (try? modelContext.fetch(servicesDescriptor)) ?? []
+        let serviceCategories = Set(services.compactMap { $0.category?.lowercased() })
+
+        // Get all current category names from bookmarks
+        let bookmarksDescriptor = FetchDescriptor<Bookmark>()
+        let bookmarks = (try? modelContext.fetch(bookmarksDescriptor)) ?? []
+        let bookmarkCategories = Set(bookmarks.compactMap { $0.category?.lowercased() })
+
+        // Combine all valid category names
+        let validCategories = serviceCategories.union(bookmarkCategories)
+
+        // Get all saved category icon preferences
+        let prefsDescriptor = FetchDescriptor<CategoryIconPreference>()
+        let preferences = (try? modelContext.fetch(prefsDescriptor)) ?? []
+
+        // Delete preferences for categories that no longer exist
+        var deletedCount = 0
+        for preference in preferences {
+            if !validCategories.contains(preference.categoryName) {
+                modelContext.delete(preference)
+                deletedCount += 1
+            }
+        }
+
+        if deletedCount > 0 {
+            print("🔄 [Sync] Removed \(deletedCount) orphaned category icon preferences")
         }
     }
 

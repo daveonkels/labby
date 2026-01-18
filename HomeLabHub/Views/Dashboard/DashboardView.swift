@@ -436,7 +436,17 @@ struct CategoryHeader: View {
     var count: Int = 0
     var onlineCount: Int = 0
 
-    private var categoryIcon: String {
+    @Environment(\.modelContext) private var modelContext
+    @State private var showIconPicker = false
+    @State private var savedIconName: String?
+
+    /// Returns the icon to display: user preference or fallback to default
+    private var displayIcon: String {
+        savedIconName ?? defaultCategoryIcon
+    }
+
+    /// Default icon based on category name (fallback when no preference set)
+    private var defaultCategoryIcon: String {
         switch title.lowercased() {
         case "media": return "play.tv.fill"
         case "downloads": return "arrow.down.circle.fill"
@@ -445,34 +455,34 @@ struct CategoryHeader: View {
         case "monitoring": return "chart.bar.fill"
         case "network": return "network"
         case "storage": return "externaldrive.fill"
-        default: return "folder.fill"
-        }
-    }
-
-    private var categoryColor: Color {
-        switch title.lowercased() {
-        case "media": return .purple
-        case "downloads": return .blue
-        case "automation": return .orange
-        case "infrastructure": return .indigo
-        case "monitoring": return .green
-        case "network": return .cyan
-        case "storage": return .brown
-        default: return .gray
+        case "productivity": return "doc.text.fill"
+        case "utilities": return "wrench.and.screwdriver.fill"
+        case "security": return "lock.shield.fill"
+        case "development": return "hammer.fill"
+        case "home": return "house.fill"
+        case "finance": return "creditcard.fill"
+        case "communication": return "bubble.left.and.bubble.right.fill"
+        case "gaming": return "gamecontroller.fill"
+        default: return "square.grid.2x2.fill"
         }
     }
 
     var body: some View {
         HStack(spacing: 10) {
-            // Category icon
-            Image(systemName: categoryIcon)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(categoryColor)
-                .frame(width: 24, height: 24)
-                .background {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(categoryColor.opacity(0.15))
-                }
+            // Category icon (tappable to change)
+            Button {
+                showIconPicker = true
+            } label: {
+                Image(systemName: displayIcon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .background {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.secondary.opacity(0.15))
+                    }
+            }
+            .buttonStyle(.plain)
 
             Text(title)
                 .font(.headline)
@@ -500,6 +510,53 @@ struct CategoryHeader: View {
         .padding(.horizontal, -16)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) category, \(onlineCount) of \(count) services online")
+        .accessibilityHint("Tap icon to change")
+        .onAppear {
+            loadSavedIcon()
+        }
+        .sheet(isPresented: $showIconPicker) {
+            CategoryIconPicker(
+                categoryName: title,
+                currentIcon: displayIcon,
+                onSelect: saveIconPreference
+            )
+            .presentationDetents([.medium, .large])
+        }
+    }
+
+    private func loadSavedIcon() {
+        let categoryKey = title.lowercased()
+        let descriptor = FetchDescriptor<CategoryIconPreference>(
+            predicate: #Predicate { $0.categoryName == categoryKey }
+        )
+        if let preference = try? modelContext.fetch(descriptor).first {
+            savedIconName = preference.iconName
+        }
+    }
+
+    private func saveIconPreference(_ iconName: String) {
+        let categoryKey = title.lowercased()
+
+        // Check if preference already exists
+        let descriptor = FetchDescriptor<CategoryIconPreference>(
+            predicate: #Predicate { $0.categoryName == categoryKey }
+        )
+
+        if let existing = try? modelContext.fetch(descriptor).first {
+            // Update existing preference
+            existing.iconName = iconName
+            existing.updatedAt = Date()
+        } else {
+            // Create new preference
+            let preference = CategoryIconPreference(categoryName: categoryKey, iconName: iconName)
+            modelContext.insert(preference)
+        }
+
+        // Update local state
+        savedIconName = iconName
+
+        // Save context
+        try? modelContext.save()
     }
 }
 
@@ -555,11 +612,11 @@ struct BookmarksSectionHeader: View {
         HStack(spacing: 10) {
             Image(systemName: "bookmark.fill")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(.secondary)
                 .frame(width: 24, height: 24)
                 .background {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.orange.opacity(0.15))
+                        .fill(Color.secondary.opacity(0.15))
                 }
 
             Text("Bookmarks")
