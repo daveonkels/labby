@@ -439,10 +439,20 @@ struct CategoryHeader: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showIconPicker = false
     @State private var savedIconName: String?
+    @State private var hasLoadedPreference = false
+
+    /// Whether the user has explicitly chosen "no icon"
+    private var isIconHidden: Bool {
+        hasLoadedPreference && savedIconName == ""
+    }
 
     /// Returns the icon to display: user preference or fallback to default
-    private var displayIcon: String {
-        savedIconName ?? defaultCategoryIcon
+    private var displayIcon: String? {
+        guard !isIconHidden else { return nil }
+        if let saved = savedIconName, !saved.isEmpty {
+            return saved
+        }
+        return defaultCategoryIcon
     }
 
     /// Default icon based on category name (fallback when no preference set)
@@ -469,24 +479,38 @@ struct CategoryHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // Category icon (tappable to change)
-            Button {
-                showIconPicker = true
-            } label: {
-                Image(systemName: displayIcon)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color.secondary.opacity(0.15))
-                    }
+            // Category icon (tappable to change) - hidden if user chose "no icon"
+            if let icon = displayIcon {
+                Button {
+                    showIconPicker = true
+                } label: {
+                    Image(systemName: icon)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .background {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.secondary.opacity(0.15))
+                        }
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(.primary)
+            // Title (tappable to change icon when icon is hidden)
+            if isIconHidden {
+                Button {
+                    showIconPicker = true
+                } label: {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            }
 
             Spacer()
 
@@ -510,7 +534,7 @@ struct CategoryHeader: View {
         .padding(.horizontal, -16)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) category, \(onlineCount) of \(count) services online")
-        .accessibilityHint("Tap icon to change")
+        .accessibilityHint(isIconHidden ? "Tap title to add icon" : "Tap icon to change")
         .onAppear {
             loadSavedIcon()
         }
@@ -532,10 +556,13 @@ struct CategoryHeader: View {
         if let preference = try? modelContext.fetch(descriptor).first {
             savedIconName = preference.iconName
         }
+        hasLoadedPreference = true
     }
 
-    private func saveIconPreference(_ iconName: String) {
+    private func saveIconPreference(_ iconName: String?) {
         let categoryKey = title.lowercased()
+        // Use empty string to represent "no icon" choice
+        let iconToSave = iconName ?? ""
 
         // Check if preference already exists
         let descriptor = FetchDescriptor<CategoryIconPreference>(
@@ -544,16 +571,16 @@ struct CategoryHeader: View {
 
         if let existing = try? modelContext.fetch(descriptor).first {
             // Update existing preference
-            existing.iconName = iconName
+            existing.iconName = iconToSave
             existing.updatedAt = Date()
         } else {
             // Create new preference
-            let preference = CategoryIconPreference(categoryName: categoryKey, iconName: iconName)
+            let preference = CategoryIconPreference(categoryName: categoryKey, iconName: iconToSave)
             modelContext.insert(preference)
         }
 
         // Update local state
-        savedIconName = iconName
+        savedIconName = iconToSave
 
         // Save context
         try? modelContext.save()

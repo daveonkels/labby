@@ -2,11 +2,14 @@ import SwiftUI
 
 struct CategoryIconPicker: View {
     let categoryName: String
-    let currentIcon: String
-    let onSelect: (String) -> Void
+    let currentIcon: String?
+    let onSelect: (String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
+
+    /// Special value indicating "no icon"
+    static let noIconValue = ""
 
     private var filteredSymbols: [(String, [String])] {
         if searchText.isEmpty {
@@ -23,6 +26,42 @@ struct CategoryIconPicker: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
+                    // No Icon option at the top
+                    if searchText.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Options")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+
+                            HStack(spacing: 12) {
+                                // No Icon button
+                                Button {
+                                    onSelect(nil)
+                                    dismiss()
+                                } label: {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: "eye.slash")
+                                            .font(.title2)
+                                            .frame(width: 56, height: 56)
+                                            .foregroundStyle(currentIcon == nil ? .white : .secondary)
+                                            .background {
+                                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                    .fill(currentIcon == nil ? Color.accentColor : Color.secondary.opacity(0.15))
+                                            }
+                                        Text("No Icon")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    }
+
                     ForEach(filteredSymbols, id: \.0) { category, symbols in
                         VStack(alignment: .leading, spacing: 12) {
                             Text(category)
