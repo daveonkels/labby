@@ -48,7 +48,7 @@ struct SettingsView: View {
                             showingAddConnection = true
                         } label: {
                             Label("Add Homepage Connection", systemImage: "plus.circle.fill")
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(Color.green)
                         }
                     } else {
                         ForEach(connections) { connection in
@@ -65,7 +65,7 @@ struct SettingsView: View {
                                     } label: {
                                         Label("Edit", systemImage: "pencil")
                                     }
-                                    .tint(.blue)
+                                    .tint(.green)
                                 }
                         }
                     }
@@ -83,7 +83,7 @@ struct SettingsView: View {
                         showingAddService = true
                     } label: {
                         Label("Add Service Manually", systemImage: "plus.circle.fill")
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(Color.green)
                     }
                 } header: {
                     Label("Manual Services", systemImage: "square.grid.2x2")
@@ -152,7 +152,7 @@ struct SettingsView: View {
                     NavigationLink {
                         AboutView()
                     } label: {
-                        Label("About HomeLabHub", systemImage: "info.circle")
+                        Label("About Labby", systemImage: "info.circle")
                     }
                 }
 
@@ -205,7 +205,7 @@ struct ConnectionRow: View {
             // Connection icon
             Image(systemName: "link.circle.fill")
                 .font(.title2)
-                .foregroundStyle(.blue)
+                .foregroundStyle(.green)
                 .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 4) {

@@ -1,7 +1,7 @@
 import XCTest
-@testable import HomeLabHub
+@testable import Labby
 
-final class HomeLabHubTests: XCTestCase {
+final class LabbyTests: XCTestCase {
 
     func testServiceInitialization() throws {
         let service = Service(

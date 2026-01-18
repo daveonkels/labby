@@ -47,7 +47,7 @@ struct CategoryIconPicker: View {
                                             .foregroundStyle(currentIcon == nil ? .white : .secondary)
                                             .background {
                                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                    .fill(currentIcon == nil ? Color.accentColor : Color.secondary.opacity(0.15))
+                                                    .fill(currentIcon == nil ? Color.green : Color.secondary.opacity(0.15))
                                             }
                                         Text("No Icon")
                                             .font(.caption)
@@ -269,7 +269,7 @@ struct SymbolButton: View {
                 .foregroundStyle(isSelected ? .white : .primary)
                 .background {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.15))
+                        .fill(isSelected ? Color.green : Color.secondary.opacity(0.15))
                 }
         }
         .buttonStyle(.plain)

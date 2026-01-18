@@ -44,7 +44,7 @@ struct PersistedBrowserState: Codable {
     let tabs: [PersistedTabState]
     let activeServiceId: UUID?
 
-    static let userDefaultsKey = "HomeLabHub.BrowserState"
+    static let userDefaultsKey = "Labby.BrowserState"
 }
 
 @Observable

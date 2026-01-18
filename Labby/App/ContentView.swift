@@ -20,8 +20,16 @@ struct ContentView: View {
 
     @State private var selectedTab: Tab = .dashboard
 
+    private var settings: AppSettings? {
+        allSettings.first
+    }
+
     private var colorSchemePreference: ColorScheme? {
-        allSettings.first?.colorSchemePreference.colorScheme
+        settings?.colorSchemePreference.colorScheme
+    }
+
+    private var shouldShowOnboarding: Bool {
+        connections.isEmpty && !(settings?.hasCompletedOnboarding ?? false)
     }
 
     enum Tab: Hashable {
@@ -33,7 +41,7 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if connections.isEmpty {
+            if shouldShowOnboarding {
                 OnboardingView()
             } else {
                 MainTabView(selectedTab: $selectedTab)
@@ -78,8 +86,9 @@ struct MainTabView: View {
 
 struct OnboardingView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
+    @Query private var allSettings: [AppSettings]
     @State private var showingSetup = false
-    @State private var animationPhase = 0
 
     private let features = [
         ("square.grid.2x2.fill", "Dashboard", "View all your services at a glance"),
@@ -98,49 +107,16 @@ struct OnboardingView: View {
 
                 // Hero section
                 VStack(spacing: 24) {
-                    // Animated logo
-                    ZStack {
-                        // Orbiting icons
-                        ForEach(0..<4, id: \.self) { index in
-                            Image(systemName: orbitingIcons[index])
-                                .font(.title3)
-                                .foregroundStyle(.white.opacity(0.8))
-                                .frame(width: 40, height: 40)
-                                .background {
-                                    Circle()
-                                        .fill(orbitingColors[index].gradient)
-                                }
-                                .clipShape(Circle())
-                                .offset(orbitOffset(for: index))
-                                .animation(
-                                    .linear(duration: 12)
-                                        .repeatForever(autoreverses: false),
-                                    value: animationPhase
-                                )
-                        }
-
-                        // Center icon
-                        Image(systemName: "server.rack")
-                            .font(.system(size: 44, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 100, height: 100)
-                            .background {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.blue, Color.indigo],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .shadow(color: .blue.opacity(0.5), radius: 20, y: 10)
-                            }
-                            .clipShape(Circle())
-                    }
-                    .frame(width: 200, height: 200)
+                    // Mascot image
+                    Image("LabbyMascot")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 180, height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
+                        .shadow(color: .green.opacity(0.5), radius: 20, y: 10)
 
                     VStack(spacing: 8) {
-                        Text("HomeLabHub")
+                        Text("Labby")
                             .font(.largeTitle.weight(.bold))
 
                         Text("Your homelab, one tap away")
@@ -175,19 +151,23 @@ struct OnboardingView: View {
                         .padding(.vertical, 18)
                         .background {
                             LinearGradient(
-                                colors: [Color.blue, Color.indigo],
+                                colors: [Color.green, Color.mint],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         }
                         .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: .blue.opacity(0.4), radius: 12, y: 6)
+                        .shadow(color: .green.opacity(0.4), radius: 12, y: 6)
                     }
 
-                    Text("You can also add services manually later")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                    Button {
+                        skipOnboarding()
+                    } label: {
+                        Text("or add services manually")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                    }
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 48)
@@ -196,26 +176,16 @@ struct OnboardingView: View {
         .sheet(isPresented: $showingSetup) {
             ConnectionSetupView()
         }
-        .onAppear {
-            animationPhase = 1
+    }
+
+    private func skipOnboarding() {
+        if let settings = allSettings.first {
+            settings.hasCompletedOnboarding = true
+        } else {
+            let newSettings = AppSettings(hasCompletedOnboarding: true)
+            modelContext.insert(newSettings)
         }
-    }
-
-    private var orbitingIcons: [String] {
-        ["play.tv.fill", "chart.bar.fill", "house.fill", "server.rack"]
-    }
-
-    private var orbitingColors: [Color] {
-        [.purple, .green, .orange, .cyan]
-    }
-
-    private func orbitOffset(for index: Int) -> CGSize {
-        let angle = (Double(animationPhase) * 2 * .pi) + (Double(index) * .pi / 2)
-        let radius: Double = 80
-        return CGSize(
-            width: Foundation.cos(angle) * radius,
-            height: Foundation.sin(angle) * radius
-        )
+        try? modelContext.save()
     }
 }
 
@@ -228,11 +198,11 @@ struct FeatureRow: View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(.blue)
+                .foregroundStyle(.green)
                 .frame(width: 44, height: 44)
                 .background {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(Color.green.opacity(0.1))
                 }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -261,7 +231,7 @@ struct OnboardingBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.blue.opacity(0.2), Color.clear],
+                            colors: [Color.green.opacity(0.2), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.5
@@ -274,7 +244,7 @@ struct OnboardingBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.indigo.opacity(0.15), Color.clear],
+                            colors: [Color.mint.opacity(0.15), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.4

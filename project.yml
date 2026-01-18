@@ -1,6 +1,6 @@
-name: HomeLabHub
+name: Labby
 options:
-  bundleIdPrefix: com.homelabhub
+  bundleIdPrefix: com.inverse
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26.0"
@@ -18,27 +18,27 @@ packages:
     from: "2.6.0"
 
 targets:
-  HomeLabHub:
+  Labby:
     type: application
     platform: iOS
     sources:
-      - path: HomeLabHub
+      - path: Labby
         excludes:
           - "**/.DS_Store"
     dependencies:
       - package: SwiftSoup
     settings:
       base:
-        INFOPLIST_FILE: HomeLabHub/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.homelabhub.app
+        INFOPLIST_FILE: Labby/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.inverse.labby
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: YES
     info:
-      path: HomeLabHub/Info.plist
+      path: Labby/Info.plist
       properties:
-        CFBundleDisplayName: HomeLabHub
+        CFBundleDisplayName: Labby
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
         UILaunchScreen:
@@ -56,29 +56,29 @@ targets:
           NSAllowsArbitraryLoads: true
           NSAllowsLocalNetworking: true
 
-  HomeLabHubTests:
+  LabbyTests:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - path: HomeLabHubTests
+      - path: LabbyTests
     dependencies:
-      - target: HomeLabHub
+      - target: Labby
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.homelabhub.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.inverse.labby.tests
 
 schemes:
-  HomeLabHub:
+  Labby:
     build:
       targets:
-        HomeLabHub: all
-        HomeLabHubTests: [test]
+        Labby: all
+        LabbyTests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - HomeLabHubTests
+        - LabbyTests
     profile:
       config: Release
     analyze:

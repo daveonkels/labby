@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to HomeLabHub are documented here.
+All notable changes to Labby are documented here.
 
 ## [0.1.0] - 2025-01-17
 

@@ -328,7 +328,7 @@ struct EmptyBrowserView: View {
     private var animatedGlobe: some View {
         ZStack {
             Circle()
-                .stroke(Color.accentColor.opacity(0.2), lineWidth: 2)
+                .stroke(Color.green.opacity(0.2), lineWidth: 2)
                 .frame(width: 100, height: 100)
 
             orbitingDot
@@ -341,7 +341,7 @@ struct EmptyBrowserView: View {
 
     private var orbitingDot: some View {
         Circle()
-            .fill(Color.accentColor)
+            .fill(Color.green)
             .frame(width: 8, height: 8)
             .offset(y: -50)
             .rotationEffect(.degrees(isAnimating ? 360 : 0))

@@ -312,7 +312,7 @@ struct GradientBackgroundPreview: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.blue.opacity(0.1 * opacityScale), Color.clear],
+                                colors: [Color.green.opacity(0.1 * opacityScale), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.3
@@ -396,7 +396,7 @@ struct GradientPresetButton: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
+                            .strokeBorder(isSelected ? Color.green : Color.clear, lineWidth: 3)
                     }
 
                 if isSelected {
@@ -449,7 +449,7 @@ struct GradientPresetThumbnail: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.blue.opacity(0.25), Color.clear],
+                                colors: [Color.green.opacity(0.25), Color.clear],
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: geo.size.width * 0.35

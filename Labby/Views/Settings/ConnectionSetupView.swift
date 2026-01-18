@@ -207,7 +207,7 @@ struct AddServiceView: View {
                                 Image(systemName: symbol)
                                     .font(.title2)
                                     .frame(width: 44, height: 44)
-                                    .background(iconSymbol == symbol ? Color.accentColor.opacity(0.2) : Color.clear)
+                                    .background(iconSymbol == symbol ? Color.green.opacity(0.2) : Color.clear)
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                             .buttonStyle(.plain)

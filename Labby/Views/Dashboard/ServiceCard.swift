@@ -57,10 +57,10 @@ struct ServiceCard: View {
             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .opacity(hasValidURL ? 1.0 : 0.6)
             .overlay(alignment: .topLeading) {
-                // Blue dot indicator when tab is open
+                // Green dot indicator when tab is open
                 if hasOpenTab {
                     Circle()
-                        .fill(Color.blue)
+                        .fill(Color.green)
                         .frame(width: 10, height: 10)
                         .padding(12)
                 }
@@ -359,7 +359,7 @@ struct OpenedTabPopover: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
-        .foregroundStyle(.blue)
+        .foregroundStyle(.green)
     }
 }
 

@@ -64,7 +64,7 @@ enum GradientPreset: String, Codable, CaseIterable {
     var colors: [Color] {
         switch self {
         case .default:
-            return [.green, .blue]
+            return [.green, .mint]
         case .sunset:
             return [Color(red: 1.0, green: 0.6, blue: 0.2), Color(red: 0.95, green: 0.4, blue: 0.5), Color(red: 0.6, green: 0.3, blue: 0.7)]
         case .ocean:
@@ -108,6 +108,7 @@ final class AppSettings {
     var gradientPresetRaw: String = GradientPreset.default.rawValue
     var colorSchemePreferenceRaw: String = ColorSchemePreference.system.rawValue
     var backgroundIntensity: Double = 0.5
+    var hasCompletedOnboarding: Bool = false
     var createdAt: Date
 
     var gradientPreset: GradientPreset {
@@ -127,6 +128,7 @@ final class AppSettings {
         gradientPreset: GradientPreset = .default,
         colorSchemePreference: ColorSchemePreference = .system,
         backgroundIntensity: Double = 0.5,
+        hasCompletedOnboarding: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -135,6 +137,7 @@ final class AppSettings {
         self.gradientPresetRaw = gradientPreset.rawValue
         self.colorSchemePreferenceRaw = colorSchemePreference.rawValue
         self.backgroundIntensity = backgroundIntensity
+        self.hasCompletedOnboarding = hasCompletedOnboarding
         self.createdAt = createdAt
     }
 

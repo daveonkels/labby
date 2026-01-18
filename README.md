@@ -1,4 +1,4 @@
-# HomeLabHub
+# Labby
 
 A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage](https://gethomepage.dev) dashboards, presenting services in a polished native UI with an embedded browser for accessing web-based services without leaving the app.
 
@@ -53,7 +53,7 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 
 3. **Open in Xcode**
    ```bash
-   open HomeLabHub.xcodeproj
+   open Labby.xcodeproj
    ```
 
 4. **Build and Run** (⌘R)
@@ -71,9 +71,9 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 ### Project Structure
 
 ```
-HomeLabHub/
+Labby/
 ├── App/
-│   ├── HomeLabHubApp.swift      # Entry point, SwiftData container
+│   ├── LabbyApp.swift      # Entry point, SwiftData container
 │   └── ContentView.swift        # Root view, tab navigation, environment setup
 ├── Models/
 │   ├── Service.swift            # SwiftData model for services

@@ -1,4 +1,4 @@
-# HomeLabHub Backlog
+# Labby Backlog
 
 ## Future Features
 

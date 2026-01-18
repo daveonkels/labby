@@ -325,7 +325,7 @@ struct GradientPresetBackground: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.blue.opacity(0.1 * opacityScale), Color.clear],
+                            colors: [Color.green.opacity(0.1 * opacityScale), Color.clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: geo.size.width * 0.3
@@ -364,7 +364,7 @@ struct EmptyDashboardView: View {
                 // Pulsing rings
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .stroke(Color.accentColor.opacity(0.3), lineWidth: 2)
+                        .stroke(Color.green.opacity(0.3), lineWidth: 2)
                         .frame(width: CGFloat(80 + index * 30), height: CGFloat(80 + index * 30))
                         .scaleEffect(isAnimating ? 1.2 : 0.8)
                         .opacity(isAnimating ? 0 : 0.6)
@@ -379,7 +379,7 @@ struct EmptyDashboardView: View {
                 // Center icon
                 Image(systemName: "square.grid.2x2.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Color.accentColor.gradient)
+                    .foregroundStyle(Color.green.gradient)
                     .symbolEffect(.bounce, options: .repeating.speed(0.5), value: isAnimating)
             }
             .frame(height: 140)
@@ -404,7 +404,7 @@ struct EmptyDashboardView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.accentColor)
+                        .background(Color.green)
                         .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }

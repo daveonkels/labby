@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct HomeLabHubApp: App {
+struct LabbyApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Service.self,
@@ -26,6 +26,7 @@ struct HomeLabHubApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .tint(.green)
         }
         .modelContainer(sharedModelContainer)
     }
