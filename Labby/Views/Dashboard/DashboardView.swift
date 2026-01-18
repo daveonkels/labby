@@ -131,11 +131,12 @@ struct DashboardView: View {
                     } else {
                         // Show search results or grouped view
                         if !searchText.isEmpty || isFilterActive {
-                            ServiceGridView(services: filteredServices)
+                            ServiceGridView(services: filteredServices, isFirstSection: true)
                         } else {
-                            ForEach(groupedServices, id: \.0) { category, categoryServices in
+                            ForEach(Array(groupedServices.enumerated()), id: \.element.0) { sectionIndex, group in
+                                let (category, categoryServices) = group
                                 Section {
-                                    ServiceGridView(services: categoryServices)
+                                    ServiceGridView(services: categoryServices, isFirstSection: sectionIndex == 0)
                                 } header: {
                                     CategoryHeader(
                                         title: category,
@@ -627,6 +628,7 @@ struct CategoryHeader: View {
 
 struct ServiceGridView: View {
     let services: [Service]
+    var isFirstSection: Bool = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -635,8 +637,8 @@ struct ServiceGridView: View {
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 16) {
-            ForEach(services, id: \.id) { service in
-                ServiceCard(service: service)
+            ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
+                ServiceCard(service: service, isFirstCard: isFirstSection && index == 0)
             }
         }
     }

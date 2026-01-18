@@ -1,15 +1,22 @@
 import SwiftUI
+import SwiftData
 import UIKit
 
 struct ServiceCard: View {
     let service: Service
+    var isFirstCard: Bool = false
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.selectedTab) private var selectedTab
+    @Environment(\.modelContext) private var modelContext
+    @Query private var allSettings: [AppSettings]
     @State private var tabManager = TabManager.shared
     @State private var showOpenedToast = false
     @State private var showCloseTabPopover = false
+    @State private var showLongPressHint = false
     @State private var didLongPress = false
+
+    private var settings: AppSettings? { allSettings.first }
 
     private var hasValidURL: Bool {
         guard let url = service.url else { return false }
@@ -86,9 +93,29 @@ struct ServiceCard: View {
             OpenedTabPopover()
                 .presentationCompactAdaptation(.popover)
         }
+        .popover(isPresented: $showLongPressHint, arrowEdge: .bottom) {
+            LongPressHintView(onDismiss: dismissLongPressHint)
+                .presentationCompactAdaptation(.popover)
+        }
+        .onAppear {
+            // Show long-press hint on first card if user hasn't seen it
+            if isFirstCard && hasValidURL && settings?.hasSeenLongPressHint == false {
+                Task {
+                    // Brief delay so user sees the dashboard first
+                    try? await Task.sleep(for: .seconds(1.5))
+                    showLongPressHint = true
+                }
+            }
+        }
         .accessibilityLabel("\(service.name) service")
         .accessibilityHint(hasValidURL ? (hasOpenTab ? "Double tap to open, long press to close tab" : "Double tap to open in browser, long press to open in background") : "No URL configured")
         .accessibilityValue(hasOpenTab ? "Tab open. " : "" + healthAccessibilityValue)
+    }
+
+    private func dismissLongPressHint() {
+        showLongPressHint = false
+        settings?.hasSeenLongPressHint = true
+        try? modelContext.save()
     }
 
     private var healthAccessibilityValue: String {
@@ -401,6 +428,31 @@ struct OpenedTabPopover: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
         .foregroundStyle(LabbyColors.primary(for: colorScheme))
+    }
+}
+
+struct LongPressHintView: View {
+    let onDismiss: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "hand.tap")
+                    .font(.title3)
+                Text("Long-press to open in background")
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(LabbyColors.primary(for: colorScheme))
+
+            Button("Got it") {
+                onDismiss()
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
     }
 }
 

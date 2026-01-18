@@ -110,6 +110,7 @@ final class AppSettings {
     var colorSchemePreferenceRaw: String = ColorSchemePreference.system.rawValue
     var backgroundIntensity: Double = 0.5
     var hasCompletedOnboarding: Bool = false
+    var hasSeenLongPressHint: Bool = false
     var createdAt: Date
 
     var gradientPreset: GradientPreset {
@@ -130,6 +131,7 @@ final class AppSettings {
         colorSchemePreference: ColorSchemePreference = .system,
         backgroundIntensity: Double = 0.5,
         hasCompletedOnboarding: Bool = false,
+        hasSeenLongPressHint: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -139,6 +141,7 @@ final class AppSettings {
         self.colorSchemePreferenceRaw = colorSchemePreference.rawValue
         self.backgroundIntensity = backgroundIntensity
         self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.hasSeenLongPressHint = hasSeenLongPressHint
         self.createdAt = createdAt
     }
 
