@@ -7,6 +7,7 @@ struct ServiceCard: View {
     @Environment(\.selectedTab) private var selectedTab
     @State private var tabManager = TabManager.shared
     @State private var showOpenedToast = false
+    @State private var showCloseTabPopover = false
     @State private var didLongPress = false
 
     private var hasValidURL: Bool {
@@ -64,29 +65,28 @@ struct ServiceCard: View {
                         .padding(12)
                 }
             }
-            .overlay {
-                // Brief toast when tab opens in background
-                if showOpenedToast {
-                    Text("Opened")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.blue, in: Capsule())
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
         }
         .buttonStyle(ServiceCardButtonStyle())
         .disabled(!hasValidURL)
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.4)
                 .onEnded { _ in
-                    openServiceInBackground()
+                    handleLongPress()
                 }
         )
+        .popover(isPresented: $showCloseTabPopover, arrowEdge: .top) {
+            CloseServiceTabPopover(onClose: {
+                showCloseTabPopover = false
+                closeServiceTab()
+            })
+            .presentationCompactAdaptation(.popover)
+        }
+        .popover(isPresented: $showOpenedToast, arrowEdge: .top) {
+            OpenedTabPopover()
+                .presentationCompactAdaptation(.popover)
+        }
         .accessibilityLabel("\(service.name) service")
-        .accessibilityHint(hasValidURL ? "Double tap to open in browser, long press to open in background" : "No URL configured")
+        .accessibilityHint(hasValidURL ? (hasOpenTab ? "Double tap to open, long press to close tab" : "Double tap to open in browser, long press to open in background") : "No URL configured")
         .accessibilityValue(hasOpenTab ? "Tab open. " : "" + healthAccessibilityValue)
     }
 
@@ -109,7 +109,7 @@ struct ServiceCard: View {
         selectedTab.wrappedValue = .browser
     }
 
-    private func openServiceInBackground() {
+    private func handleLongPress() {
         guard hasValidURL else { return }
 
         // Mark that we did a long press to prevent button action from firing
@@ -119,20 +119,32 @@ struct ServiceCard: View {
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
 
+        if hasOpenTab {
+            // Tab already open - show close confirmation popover
+            showCloseTabPopover = true
+        } else {
+            // No tab open - open in background
+            openServiceInBackground()
+        }
+    }
+
+    private func openServiceInBackground() {
         // Open tab without switching to browser view
         let _ = TabManager.shared.openService(service)
 
-        // Show brief toast
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            showOpenedToast = true
-        }
+        // Show confirmation popover
+        showOpenedToast = true
 
-        // Hide toast after a moment
+        // Auto-dismiss after user can see it
         Task {
-            try? await Task.sleep(for: .seconds(0.8))
-            withAnimation(.easeOut(duration: 0.2)) {
-                showOpenedToast = false
-            }
+            try? await Task.sleep(for: .seconds(1.5))
+            showOpenedToast = false
+        }
+    }
+
+    private func closeServiceTab() {
+        if let tab = tabManager.tabs.first(where: { $0.service.id == service.id }) {
+            tabManager.closeTab(tab)
         }
     }
 }
@@ -312,6 +324,42 @@ struct HealthIndicator: View {
 
     var body: some View {
         HealthBadge(isHealthy: isHealthy)
+    }
+}
+
+// MARK: - Close Tab Popover
+
+struct CloseServiceTabPopover: View {
+    let onClose: () -> Void
+
+    var body: some View {
+        Button(role: .destructive, action: onClose) {
+            HStack(spacing: 8) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.body)
+                Text("Close Tab")
+                    .font(.subheadline.weight(.medium))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.red)
+    }
+}
+
+struct OpenedTabPopover: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.body)
+            Text("Opened")
+                .font(.subheadline.weight(.medium))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .foregroundStyle(.blue)
     }
 }
 

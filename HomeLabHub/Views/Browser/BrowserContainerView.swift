@@ -304,10 +304,10 @@ struct CloseTabPopover: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .buttonStyle(.plain)
         .foregroundStyle(.red)
-        .background(.ultraThinMaterial)
     }
 }
 

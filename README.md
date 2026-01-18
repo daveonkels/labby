@@ -6,8 +6,10 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 
 - **Homepage Integration**: Syncs services from your Homepage instance by parsing the Next.js `__NEXT_DATA__` payload
 - **Native Dashboard**: Services displayed in a grid with category grouping and health status indicators
+- **iOS 26 Liquid Glass UI**: Native TabView with floating search button using iOS 26 design language
 - **Health Monitoring**: Background polling shows online/offline status for each service with visual indicators
 - **Status Filtering**: Filter dashboard by online/offline status; filter floats to header when active
+- **Custom Backgrounds**: Personalize dashboard with images from photo library or AI-generated art via Apple Intelligence
 - **Self-Signed SSL Support**: Accepts self-signed certificates common in homelab environments
 - **Embedded Browser**: WKWebView-based tabs with persistent cookies/sessions
 - **Tab Persistence**: All open tabs stay in memory—switch between them without reloading
@@ -15,9 +17,10 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 
 ## Requirements
 
-- iOS 17.0+
-- Xcode 15.0+
+- iOS 26.0+
+- Xcode 26.0+
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) for project generation
+- Device with Apple Intelligence support (for AI background generation)
 
 ## Setup
 
