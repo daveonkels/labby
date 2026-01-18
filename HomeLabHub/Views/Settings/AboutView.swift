@@ -57,6 +57,15 @@ struct AboutView: View {
                 VStack(spacing: 4) {
                     Text("Version \(appVersion) (\(buildNumber))")
                     Text("© \(copyrightYears) Dave Onkels. All Rights Reserved.")
+                    Image("AboutAppIcon")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 13.5))
+                        .padding(.top, 12)
+                    Text("Dedicated to Mugzy")
+                        .italic()
+                        .padding(.top, 8)
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondary)
