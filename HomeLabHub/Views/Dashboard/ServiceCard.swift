@@ -1,10 +1,13 @@
 import SwiftUI
+import UIKit
 
 struct ServiceCard: View {
     let service: Service
 
     @Environment(\.selectedTab) private var selectedTab
     @State private var tabManager = TabManager.shared
+    @State private var showOpenedToast = false
+    @State private var didLongPress = false
 
     private var hasValidURL: Bool {
         guard let url = service.url else { return false }
@@ -61,11 +64,29 @@ struct ServiceCard: View {
                         .padding(12)
                 }
             }
+            .overlay {
+                // Brief toast when tab opens in background
+                if showOpenedToast {
+                    Text("Opened")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.blue, in: Capsule())
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
         }
         .buttonStyle(ServiceCardButtonStyle())
         .disabled(!hasValidURL)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4)
+                .onEnded { _ in
+                    openServiceInBackground()
+                }
+        )
         .accessibilityLabel("\(service.name) service")
-        .accessibilityHint(hasValidURL ? "Double tap to open in browser" : "No URL configured")
+        .accessibilityHint(hasValidURL ? "Double tap to open in browser, long press to open in background" : "No URL configured")
         .accessibilityValue(hasOpenTab ? "Tab open. " : "" + healthAccessibilityValue)
     }
 
@@ -78,9 +99,41 @@ struct ServiceCard: View {
     }
 
     private func openService() {
+        // Skip if this was triggered by a long press
+        if didLongPress {
+            didLongPress = false
+            return
+        }
         guard hasValidURL else { return }
         let _ = TabManager.shared.openService(service)
         selectedTab.wrappedValue = .browser
+    }
+
+    private func openServiceInBackground() {
+        guard hasValidURL else { return }
+
+        // Mark that we did a long press to prevent button action from firing
+        didLongPress = true
+
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
+        // Open tab without switching to browser view
+        let _ = TabManager.shared.openService(service)
+
+        // Show brief toast
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            showOpenedToast = true
+        }
+
+        // Hide toast after a moment
+        Task {
+            try? await Task.sleep(for: .seconds(0.8))
+            withAnimation(.easeOut(duration: 0.2)) {
+                showOpenedToast = false
+            }
+        }
     }
 }
 
