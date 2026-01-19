@@ -11,10 +11,9 @@ DerivedData/
 
 # Swift Package Manager
 .build/
-.swiftpm/
+.swiftpm/xcode/
 Packages/
 Package.pins
-Package.resolved
 
 # CocoaPods (if ever used)
 Pods/
