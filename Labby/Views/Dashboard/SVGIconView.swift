@@ -110,186 +110,180 @@ struct SVGPathShape: Shape {
         var path = Path()
         var currentPoint = CGPoint.zero
         var startPoint = CGPoint.zero
+        var lastCommand: Character = " "
 
         let commands = tokenizePath(data)
         var i = 0
 
+        // Helper to safely get a Double from commands array
+        func getDouble(at index: Int) -> Double? {
+            guard index < commands.count else { return nil }
+            return Double(commands[index])
+        }
+
         while i < commands.count {
-            let command = commands[i]
-            i += 1
+            let token = commands[i]
+
+            // Check if token is a command letter or a number (implicit repeat)
+            let command: Character
+            if let firstChar = token.first, firstChar.isLetter {
+                command = firstChar
+                i += 1
+            } else {
+                // Implicit command repeat - use last command
+                // M becomes L after first point, m becomes l
+                if lastCommand == "M" {
+                    command = "L"
+                } else if lastCommand == "m" {
+                    command = "l"
+                } else {
+                    command = lastCommand
+                }
+            }
+
+            lastCommand = command
 
             switch command {
             case "M": // MoveTo (absolute)
-                if i + 1 < commands.count,
-                   let x = Double(commands[i]),
-                   let y = Double(commands[i + 1]) {
+                if let x = getDouble(at: i), let y = getDouble(at: i + 1) {
                     currentPoint = CGPoint(x: x, y: y)
                     startPoint = currentPoint
                     path.move(to: currentPoint)
-                    i += 2
                 }
+                i += 2
 
             case "m": // MoveTo (relative)
-                if i + 1 < commands.count,
-                   let dx = Double(commands[i]),
-                   let dy = Double(commands[i + 1]) {
+                if let dx = getDouble(at: i), let dy = getDouble(at: i + 1) {
                     currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y + dy)
                     startPoint = currentPoint
                     path.move(to: currentPoint)
-                    i += 2
                 }
+                i += 2
 
             case "L": // LineTo (absolute)
-                if i + 1 < commands.count,
-                   let x = Double(commands[i]),
-                   let y = Double(commands[i + 1]) {
+                if let x = getDouble(at: i), let y = getDouble(at: i + 1) {
                     currentPoint = CGPoint(x: x, y: y)
                     path.addLine(to: currentPoint)
-                    i += 2
                 }
+                i += 2
 
             case "l": // LineTo (relative)
-                if i + 1 < commands.count,
-                   let dx = Double(commands[i]),
-                   let dy = Double(commands[i + 1]) {
+                if let dx = getDouble(at: i), let dy = getDouble(at: i + 1) {
                     currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y + dy)
                     path.addLine(to: currentPoint)
-                    i += 2
                 }
+                i += 2
 
             case "H": // Horizontal LineTo (absolute)
-                if let x = Double(commands[i]) {
+                if let x = getDouble(at: i) {
                     currentPoint = CGPoint(x: x, y: currentPoint.y)
                     path.addLine(to: currentPoint)
-                    i += 1
                 }
+                i += 1
 
             case "h": // Horizontal LineTo (relative)
-                if let dx = Double(commands[i]) {
+                if let dx = getDouble(at: i) {
                     currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y)
                     path.addLine(to: currentPoint)
-                    i += 1
                 }
+                i += 1
 
             case "V": // Vertical LineTo (absolute)
-                if let y = Double(commands[i]) {
+                if let y = getDouble(at: i) {
                     currentPoint = CGPoint(x: currentPoint.x, y: y)
                     path.addLine(to: currentPoint)
-                    i += 1
                 }
+                i += 1
 
             case "v": // Vertical LineTo (relative)
-                if let dy = Double(commands[i]) {
+                if let dy = getDouble(at: i) {
                     currentPoint = CGPoint(x: currentPoint.x, y: currentPoint.y + dy)
                     path.addLine(to: currentPoint)
-                    i += 1
                 }
+                i += 1
 
             case "C": // CurveTo (absolute)
-                if i + 5 < commands.count,
-                   let x1 = Double(commands[i]),
-                   let y1 = Double(commands[i + 1]),
-                   let x2 = Double(commands[i + 2]),
-                   let y2 = Double(commands[i + 3]),
-                   let x = Double(commands[i + 4]),
-                   let y = Double(commands[i + 5]) {
+                if let x1 = getDouble(at: i), let y1 = getDouble(at: i + 1),
+                   let x2 = getDouble(at: i + 2), let y2 = getDouble(at: i + 3),
+                   let x = getDouble(at: i + 4), let y = getDouble(at: i + 5) {
                     let control1 = CGPoint(x: x1, y: y1)
                     let control2 = CGPoint(x: x2, y: y2)
                     currentPoint = CGPoint(x: x, y: y)
                     path.addCurve(to: currentPoint, control1: control1, control2: control2)
-                    i += 6
                 }
+                i += 6
 
             case "c": // CurveTo (relative)
-                if i + 5 < commands.count,
-                   let dx1 = Double(commands[i]),
-                   let dy1 = Double(commands[i + 1]),
-                   let dx2 = Double(commands[i + 2]),
-                   let dy2 = Double(commands[i + 3]),
-                   let dx = Double(commands[i + 4]),
-                   let dy = Double(commands[i + 5]) {
+                if let dx1 = getDouble(at: i), let dy1 = getDouble(at: i + 1),
+                   let dx2 = getDouble(at: i + 2), let dy2 = getDouble(at: i + 3),
+                   let dx = getDouble(at: i + 4), let dy = getDouble(at: i + 5) {
                     let control1 = CGPoint(x: currentPoint.x + dx1, y: currentPoint.y + dy1)
                     let control2 = CGPoint(x: currentPoint.x + dx2, y: currentPoint.y + dy2)
                     currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y + dy)
                     path.addCurve(to: currentPoint, control1: control1, control2: control2)
-                    i += 6
                 }
+                i += 6
 
             case "S": // Smooth CurveTo (absolute)
-                if i + 3 < commands.count,
-                   let x2 = Double(commands[i]),
-                   let y2 = Double(commands[i + 1]),
-                   let x = Double(commands[i + 2]),
-                   let y = Double(commands[i + 3]) {
+                if let x2 = getDouble(at: i), let y2 = getDouble(at: i + 1),
+                   let x = getDouble(at: i + 2), let y = getDouble(at: i + 3) {
                     let control1 = currentPoint // Simplified - should reflect previous control point
                     let control2 = CGPoint(x: x2, y: y2)
                     currentPoint = CGPoint(x: x, y: y)
                     path.addCurve(to: currentPoint, control1: control1, control2: control2)
-                    i += 4
                 }
+                i += 4
 
             case "s": // Smooth CurveTo (relative)
-                if i + 3 < commands.count,
-                   let dx2 = Double(commands[i]),
-                   let dy2 = Double(commands[i + 1]),
-                   let dx = Double(commands[i + 2]),
-                   let dy = Double(commands[i + 3]) {
+                if let dx2 = getDouble(at: i), let dy2 = getDouble(at: i + 1),
+                   let dx = getDouble(at: i + 2), let dy = getDouble(at: i + 3) {
                     let control1 = currentPoint // Simplified
                     let control2 = CGPoint(x: currentPoint.x + dx2, y: currentPoint.y + dy2)
                     currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y + dy)
                     path.addCurve(to: currentPoint, control1: control1, control2: control2)
-                    i += 4
                 }
+                i += 4
 
             case "Q": // Quadratic CurveTo (absolute)
-                if i + 3 < commands.count,
-                   let x1 = Double(commands[i]),
-                   let y1 = Double(commands[i + 1]),
-                   let x = Double(commands[i + 2]),
-                   let y = Double(commands[i + 3]) {
+                if let x1 = getDouble(at: i), let y1 = getDouble(at: i + 1),
+                   let x = getDouble(at: i + 2), let y = getDouble(at: i + 3) {
                     let control = CGPoint(x: x1, y: y1)
                     currentPoint = CGPoint(x: x, y: y)
                     path.addQuadCurve(to: currentPoint, control: control)
-                    i += 4
                 }
+                i += 4
 
             case "q": // Quadratic CurveTo (relative)
-                if i + 3 < commands.count,
-                   let dx1 = Double(commands[i]),
-                   let dy1 = Double(commands[i + 1]),
-                   let dx = Double(commands[i + 2]),
-                   let dy = Double(commands[i + 3]) {
+                if let dx1 = getDouble(at: i), let dy1 = getDouble(at: i + 1),
+                   let dx = getDouble(at: i + 2), let dy = getDouble(at: i + 3) {
                     let control = CGPoint(x: currentPoint.x + dx1, y: currentPoint.y + dy1)
                     currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y + dy)
                     path.addQuadCurve(to: currentPoint, control: control)
-                    i += 4
                 }
+                i += 4
 
-            case "A", "a": // Arc (simplified - not fully implemented)
-                // Arcs are complex; skip for now and move to endpoint
-                if i + 6 < commands.count {
-                    if command == "A",
-                       let x = Double(commands[i + 5]),
-                       let y = Double(commands[i + 6]) {
-                        currentPoint = CGPoint(x: x, y: y)
-                        path.addLine(to: currentPoint)
-                    } else if let dx = Double(commands[i + 5]),
-                              let dy = Double(commands[i + 6]) {
-                        currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y + dy)
-                        path.addLine(to: currentPoint)
-                    }
-                    i += 7
+            case "A": // Arc (absolute) - simplified, draws line to endpoint
+                // Arc params: rx ry x-rotation large-arc sweep x y
+                if let x = getDouble(at: i + 5), let y = getDouble(at: i + 6) {
+                    currentPoint = CGPoint(x: x, y: y)
+                    path.addLine(to: currentPoint)
                 }
+                i += 7
+
+            case "a": // Arc (relative) - simplified, draws line to endpoint
+                if let dx = getDouble(at: i + 5), let dy = getDouble(at: i + 6) {
+                    currentPoint = CGPoint(x: currentPoint.x + dx, y: currentPoint.y + dy)
+                    path.addLine(to: currentPoint)
+                }
+                i += 7
 
             case "Z", "z": // ClosePath
                 path.closeSubpath()
                 currentPoint = startPoint
 
             default:
-                // Try to parse as a number (implicit command repeat)
-                if let _ = Double(command) {
-                    i -= 1 // Back up and let the previous command handle it
-                }
+                // Unknown command - skip to avoid infinite loop
+                break
             }
         }
 
