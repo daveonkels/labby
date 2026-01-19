@@ -6,6 +6,8 @@ struct LabbyApp: App {
     init() {
         configureNavigationBarAppearance()
         configureTabBarAppearance()
+        // Clear debug logs from previous sessions
+        DebugLogger.shared.clear()
     }
 
     var sharedModelContainer: ModelContainer = {

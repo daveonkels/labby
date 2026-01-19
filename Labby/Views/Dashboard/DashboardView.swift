@@ -612,9 +612,11 @@ struct ServiceGridView: View {
     let services: [Service]
     var isFirstSection: Bool = false
 
+    /// Adaptive grid that maintains roughly square cards
+    /// - Portrait: 2 columns (~160-190pt each)
+    /// - Landscape: 4+ columns (~160-200pt each)
     private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
+        GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
     var body: some View {
