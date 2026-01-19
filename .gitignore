@@ -1,6 +1,4 @@
-# Xcode
-*.xcodeproj/xcuserdata/
-*.xcodeproj/project.xcworkspace/xcuserdata/
+# Xcode user data
 *.xcworkspace/xcuserdata/
 DerivedData/
 *.hmap
@@ -36,8 +34,10 @@ Thumbs.db
 # Build artifacts
 build/
 
-# Generated Xcode project (regenerate with xcodegen)
-*.xcodeproj/
+# Generated Xcode project - committed for Xcode Cloud compatibility
+# Regenerate locally with: xcodegen
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Fastlane (if ever used)
 fastlane/report.xml
