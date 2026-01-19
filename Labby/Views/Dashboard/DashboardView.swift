@@ -16,7 +16,6 @@ struct DashboardView: View {
     @Binding var searchText: String
     @State private var isRefreshing = false
     @State private var healthFilter: HealthFilter? = nil
-    @State private var isReady = false
 
     private var isFilterActive: Bool {
         healthFilter != nil
@@ -71,34 +70,17 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if !isReady {
-                    // Brief loading state to allow network permission prompt to complete
-                    VStack {
-                        ProgressView()
-                        Text("Loading...")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 8)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    dashboardContent
+            dashboardContent
+                .navigationTitle(isFilterActive ? "" : dashboardTitle)
+                .navigationBarTitleDisplayMode(.inline)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
+                .refreshable {
+                    await refreshServices()
                 }
-            }
-            .navigationTitle(isFilterActive ? "" : dashboardTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
-            .refreshable {
-                await refreshServices()
-            }
-            .task {
-                // Brief delay to allow network permission prompt to complete before loading icons
-                try? await Task.sleep(for: .milliseconds(500))
-                isReady = true
-                // Start health monitoring when dashboard appears
-                await HealthChecker.shared.startMonitoring(modelContext: modelContext)
-            }
+                .task {
+                    // Start health monitoring when dashboard appears
+                    await HealthChecker.shared.startMonitoring(modelContext: modelContext)
+                }
         }
     }
 
