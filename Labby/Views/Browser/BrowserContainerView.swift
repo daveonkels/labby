@@ -64,14 +64,15 @@ struct SwipeableBrowserView: View {
 
             // Close button - upper right (appears during tab navigation)
             if showCloseButton {
-                GeometryReader { geometry in
+                VStack {
                     HStack {
                         Spacer()
                         FloatingCloseButton(onClose: closeCurrentTab)
-                            .padding(.trailing, 20)
-                            .padding(.top, geometry.safeAreaInsets.top + 4) // Just below status bar
+                            .padding(.trailing, 16)
                     }
+                    Spacer()
                 }
+                .padding(.top, 54) // Fixed position just below Dynamic Island/notch
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
@@ -421,12 +422,12 @@ struct FloatingCloseButton: View {
 
     var body: some View {
         Button(action: onClose) {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 32))
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, .black.opacity(0.6))
+            Image(systemName: "xmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.primary)
+                .frame(width: 32, height: 32)
+                .glassEffect(.regular, in: Circle())
         }
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
     }
 }
 
