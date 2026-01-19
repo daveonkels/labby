@@ -284,9 +284,16 @@ struct HomepageClient {
                         let iconName = normalizeIconName(String(icon.dropFirst(3))) // Remove "sh-" prefix
                         iconURL = "https://cdn.jsdelivr.net/gh/selfhst/icons@main/png/\(iconName).png"
                     } else if icon.hasPrefix("mdi-") {
-                        // Material Design Icons - try dashboard-icons as fallback
-                        let iconName = String(icon.dropFirst(4)) // Remove "mdi-" prefix
-                        iconURL = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/\(iconName).png"
+                        // Material Design Icons from @mdi/svg via jsdelivr CDN
+                        // Format: mdi-{icon-name} or mdi-{icon-name}-#{color}
+                        let iconPart = String(icon.dropFirst(4)) // Remove "mdi-" prefix
+                        let (iconName, colorHex) = extractMDIIconNameAndColor(iconPart)
+                        var mdiURL = "https://cdn.jsdelivr.net/npm/@mdi/svg@latest/svg/\(iconName).svg"
+                        // Encode color in URL fragment for SVGIconView to use
+                        if let color = colorHex {
+                            mdiURL += "#\(color)"
+                        }
+                        iconURL = mdiURL
                     } else {
                         // Dashboard icon - use CDN URL with normalized name
                         let normalizedIcon = normalizeIconName(icon)
@@ -321,6 +328,22 @@ struct HomepageClient {
             .replacingOccurrences(of: ".png", with: "")
             .replacingOccurrences(of: ".svg", with: "")
             .replacingOccurrences(of: ".webp", with: "")
+    }
+
+    /// Extracts MDI icon name and optional color from the icon identifier
+    /// - Parameter iconPart: The icon identifier after "mdi-" prefix (e.g., "chat-processing" or "chat-processing-#9333ea")
+    /// - Returns: Tuple of (icon name, optional hex color without #)
+    private func extractMDIIconNameAndColor(_ iconPart: String) -> (name: String, color: String?) {
+        // MDI icons can have an optional color suffix like "-#f0d453"
+        // We need to find the last occurrence of "-#" and extract the color
+        if let colorRange = iconPart.range(of: "-#[0-9a-fA-F]+$", options: .regularExpression) {
+            let name = String(iconPart[..<colorRange.lowerBound])
+            // Extract color hex (skip the "-#" prefix)
+            let colorStart = iconPart.index(colorRange.lowerBound, offsetBy: 2)
+            let color = String(iconPart[colorStart...])
+            return (name, color)
+        }
+        return (iconPart, nil)
     }
 
     private func resolveURL(_ urlString: String) -> String {

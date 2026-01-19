@@ -212,6 +212,7 @@ struct ServiceIcon: View {
 /// Loads an icon with automatic dark/light mode variant support
 /// Tries themed variant first, falls back to original if not available
 /// Includes automatic retry on failure and pull-to-refresh support
+/// Handles SVG icons (like MDI) using native SwiftUI path rendering
 struct ThemedAsyncImage: View {
     let originalURL: URL
     let colorScheme: ColorScheme
@@ -219,6 +220,12 @@ struct ThemedAsyncImage: View {
     @State private var useFallback = false
     @State private var retryCount = 0
     @State private var forceReloadToken = UUID()
+
+    /// Whether this URL points to an SVG file
+    private var isSVG: Bool {
+        originalURL.pathExtension.lowercased() == "svg" ||
+        originalURL.absoluteString.contains(".svg")
+    }
 
     private var themedURL: URL {
         guard !useFallback else { return originalURL }
@@ -237,34 +244,42 @@ struct ThemedAsyncImage: View {
     }
 
     var body: some View {
-        AsyncImage(url: cacheBreakingURL) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            case .failure:
-                if !useFallback && themedURL != originalURL {
-                    // Themed variant failed, try original
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .onAppear { useFallback = true }
-                } else if retryCount < 2 {
-                    // Retry up to 2 times with delay
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .task {
-                            try? await Task.sleep(for: .seconds(1))
-                            retryCount += 1
+        Group {
+            if isSVG {
+                // Use native SVG rendering for SVG icons (like MDI)
+                SVGIconView(url: cacheBreakingURL, tintColor: .primary)
+            } else {
+                // Use AsyncImage for raster images (PNG, WebP, etc.)
+                AsyncImage(url: cacheBreakingURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .failure:
+                        if !useFallback && themedURL != originalURL {
+                            // Themed variant failed, try original
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .onAppear { useFallback = true }
+                        } else if retryCount < 2 {
+                            // Retry up to 2 times with delay
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .task {
+                                    try? await Task.sleep(for: .seconds(1))
+                                    retryCount += 1
+                                }
+                        } else {
+                            DefaultServiceIcon()
                         }
-                } else {
-                    DefaultServiceIcon()
+                    case .empty:
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    @unknown default:
+                        DefaultServiceIcon()
+                    }
                 }
-            case .empty:
-                ProgressView()
-                    .scaleEffect(0.8)
-            @unknown default:
-                DefaultServiceIcon()
             }
         }
         .id(forceReloadToken) // Force reload when token changes
