@@ -54,13 +54,13 @@ struct AboutView: View {
                 LinkRow(
                     title: "Terms of Service",
                     icon: "doc.text",
-                    url: URL(string: "https://labby.casa/terms")!
+                    url: URL(string: "https://labby.casa/terms.html")!
                 )
 
                 LinkRow(
                     title: "Privacy Policy",
                     icon: "hand.raised",
-                    url: URL(string: "https://labby.casa/privacy")!
+                    url: URL(string: "https://labby.casa/privacy.html")!
                 )
 
                 NavigationLink {
