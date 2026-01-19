@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct BrowserContainerView: View {
     @State private var tabManager = TabManager.shared
@@ -28,6 +29,14 @@ struct SwipeableBrowserView: View {
     @State private var hideToolbarTask: Task<Void, Never>?
     @State private var hideDotsTask: Task<Void, Never>?
 
+    // Close button state
+    @State private var showCloseButton: Bool = false
+    @State private var hideCloseButtonTask: Task<Void, Never>?
+
+    // Scrubbing state
+    @State private var isScrubbing: Bool = false
+    @State private var scrubStartIndex: Int = 0
+
     var body: some View {
         ZStack(alignment: .bottom) {
             // Full-screen swipeable tabs
@@ -39,14 +48,32 @@ struct SwipeableBrowserView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea(.all) // Extend under status bar for seamless look
-            .onChange(of: selectedIndex) { _, newIndex in
+            .onChange(of: selectedIndex) { oldIndex, newIndex in
                 syncActiveTab(to: newIndex)
                 showDotsTemporarily()
+                // Show close button when switching tabs
+                if oldIndex != newIndex {
+                    showCloseButtonWithTimer()
+                }
             }
             .onAppear {
                 syncSelectedIndex()
                 scheduleToolbarHide()
                 showDotsTemporarily()
+            }
+
+            // Close button - upper right (appears during tab navigation)
+            if showCloseButton {
+                VStack {
+                    HStack {
+                        Spacer()
+                        FloatingCloseButton(onClose: closeCurrentTab)
+                            .padding(.trailing, 20)
+                            .padding(.top, 60) // Below status bar
+                    }
+                    Spacer()
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
             // Floating toolbar overlay (auto-hides)
@@ -64,13 +91,48 @@ struct SwipeableBrowserView: View {
                 .opacity(toolbarVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.25), value: toolbarVisible)
 
-                // Page indicator - long press to close current tab
+                // Page indicator with scrubbing gesture
+                // Extra padding creates larger touch target for easier scrubbing
                 PageDots(
                     count: tabManager.tabs.count,
-                    currentIndex: selectedIndex,
-                    onCloseCurrentTab: closeCurrentTab
+                    currentIndex: selectedIndex
                 )
-                .padding(.bottom, 8)
+                .padding(.horizontal, 40) // Extend touch area horizontally
+                .padding(.vertical, 20)   // Extend touch area vertically
+                .contentShape(Rectangle()) // Make entire padded area tappable
+                .gesture(
+                    LongPressGesture(minimumDuration: 0.15) // Slightly faster activation
+                        .sequenced(before: DragGesture(minimumDistance: 0))
+                        .onChanged { value in
+                            switch value {
+                            case .first(true):
+                                // Long press recognized - start scrubbing
+                                isScrubbing = true
+                                scrubStartIndex = selectedIndex
+                                showCloseButtonWithTimer()
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+                            case .second(true, let drag):
+                                guard let drag = drag, isScrubbing else { return }
+                                // Calculate new index based on drag offset
+                                let dotSpacing: CGFloat = 18 // 10pt dot + 8pt spacing
+                                let indexOffset = Int(drag.translation.width / dotSpacing)
+                                let newIndex = max(0, min(tabManager.tabs.count - 1, scrubStartIndex + indexOffset))
+                                if newIndex != selectedIndex {
+                                    selectedIndex = newIndex
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                }
+
+                            default:
+                                break
+                            }
+                        }
+                        .onEnded { _ in
+                            isScrubbing = false
+                            showCloseButtonWithTimer()
+                        }
+                )
+                .padding(.bottom, 12)
                 .opacity(dotsVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.25), value: dotsVisible)
             }
@@ -137,6 +199,19 @@ struct SwipeableBrowserView: View {
         tabManager.closeTab(tab)
         if !tabManager.tabs.isEmpty {
             selectedIndex = newIndex
+        }
+    }
+
+    private func showCloseButtonWithTimer() {
+        withAnimation(.easeInOut(duration: 0.2)) { showCloseButton = true }
+        hideCloseButtonTask?.cancel()
+        hideCloseButtonTask = Task {
+            try? await Task.sleep(for: .seconds(5))
+            if !Task.isCancelled && !isScrubbing {
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.2)) { showCloseButton = false }
+                }
+            }
         }
     }
 }
@@ -318,58 +393,41 @@ struct FloatingBrowserToolbar: View {
     }
 }
 
-// MARK: - Page Dots (Minimal indicator just above tab bar)
+// MARK: - Page Dots (Weather app style indicator)
 
 struct PageDots: View {
     let count: Int
     let currentIndex: Int
-    let onCloseCurrentTab: () -> Void
-
-    @State private var showCloseMenu = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ForEach(0..<count, id: \.self) { index in
                 Circle()
                     .fill(index == currentIndex ? Color.primary : Color.primary.opacity(0.3))
-                    .frame(width: index == currentIndex ? 8 : 6, height: index == currentIndex ? 8 : 6)
+                    .frame(width: index == currentIndex ? 10 : 8, height: index == currentIndex ? 10 : 8)
                     .animation(.easeInOut(duration: 0.2), value: currentIndex)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
         .glassEffect(.regular, in: Capsule())
         .contentShape(Capsule())
-        .onLongPressGesture(minimumDuration: 0.4) {
-            showCloseMenu = true
-        }
-        .popover(isPresented: $showCloseMenu, arrowEdge: .bottom) {
-            CloseTabPopover(onClose: {
-                showCloseMenu = false
-                onCloseCurrentTab()
-            })
-            .presentationCompactAdaptation(.popover)
-        }
     }
 }
 
-struct CloseTabPopover: View {
+// MARK: - Floating Close Button
+
+struct FloatingCloseButton: View {
     let onClose: () -> Void
 
     var body: some View {
-        Button(role: .destructive, action: onClose) {
-            HStack(spacing: 8) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.body)
-                Text("Close Tab")
-                    .font(.subheadline.weight(.medium))
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        Button(action: onClose) {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 32))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, .black.opacity(0.6))
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.red)
+        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
     }
 }
 
