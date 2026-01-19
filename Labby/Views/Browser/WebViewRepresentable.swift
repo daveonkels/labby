@@ -37,6 +37,16 @@ struct WebViewRepresentable: UIViewRepresentable {
         // Store reference
         tab.webView = webView
 
+        // Add pull-to-refresh
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.handleRefresh),
+            for: .valueChanged
+        )
+        webView.scrollView.refreshControl = refreshControl
+        tab.refreshControl = refreshControl
+
         // Load initial URL (uses restored URL if available)
         if let url = tab.urlToLoad {
             logInfo("Loading URL: \(url.absoluteString)")
@@ -55,7 +65,10 @@ struct WebViewRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // Update tab state
+        // Sync refresh control state with loading state
+        if !tab.isLoading, webView.scrollView.refreshControl?.isRefreshing == true {
+            webView.scrollView.refreshControl?.endRefreshing()
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -67,6 +80,10 @@ struct WebViewRepresentable: UIViewRepresentable {
 
         init(tab: BrowserTab) {
             self.tab = tab
+        }
+
+        @objc func handleRefresh() {
+            tab?.webView?.reload()
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -89,6 +106,7 @@ struct WebViewRepresentable: UIViewRepresentable {
             tab.title = webView.title
             tab.loadError = nil
             updateNavigationState(webView)
+            webView.scrollView.refreshControl?.endRefreshing()
             // Persist the current URL for tab restoration
             TabManager.shared.updateTabURL(tab, url: webView.url)
         }
@@ -100,6 +118,7 @@ struct WebViewRepresentable: UIViewRepresentable {
             tab?.isLoading = false
             tab?.loadError = describeError(nsError)
             updateNavigationState(webView)
+            webView.scrollView.refreshControl?.endRefreshing()
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -110,6 +129,7 @@ struct WebViewRepresentable: UIViewRepresentable {
             tab?.isLoading = false
             tab?.loadError = describeError(nsError)
             updateNavigationState(webView)
+            webView.scrollView.refreshControl?.endRefreshing()
         }
 
         // MARK: - Navigation Policy

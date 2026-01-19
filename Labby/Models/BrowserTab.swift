@@ -1,12 +1,14 @@
 import Foundation
 import WebKit
 import SwiftData
+import UIKit
 
 @Observable
 final class BrowserTab: Identifiable {
     let id: UUID
     let service: Service
     weak var webView: WKWebView?
+    weak var refreshControl: UIRefreshControl?
     var currentURL: URL?
     var title: String?
     var isLoading: Bool = false
