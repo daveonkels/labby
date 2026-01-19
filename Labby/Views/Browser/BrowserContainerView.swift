@@ -148,12 +148,74 @@ struct FullScreenWebView: View {
     let onTap: () -> Void
 
     var body: some View {
-        WebViewRepresentable(tab: tab)
-            .ignoresSafeArea(.all) // Extend under status bar and home indicator
-            .contentShape(Rectangle())
-            .onTapGesture {
-                onTap()
+        ZStack {
+            WebViewRepresentable(tab: tab)
+                .ignoresSafeArea(.all) // Extend under status bar and home indicator
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onTap()
+                }
+
+            // Show error overlay if load failed
+            if let error = tab.loadError {
+                WebViewErrorOverlay(
+                    error: error,
+                    url: tab.urlToLoad,
+                    onRetry: {
+                        tab.loadError = nil
+                        if let url = tab.urlToLoad {
+                            tab.webView?.load(URLRequest(url: url))
+                        }
+                    }
+                )
             }
+        }
+    }
+}
+
+// MARK: - Error Overlay
+
+struct WebViewErrorOverlay: View {
+    let error: String
+    let url: URL?
+    let onRetry: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.orange)
+
+            VStack(spacing: 8) {
+                Text("Failed to Load")
+                    .font(.title2.weight(.semibold))
+
+                Text(error)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                if let url = url {
+                    Text(url.absoluteString)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
+            Button(action: onRetry) {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.body.weight(.medium))
+            }
+            .buttonStyle(.bordered)
+            .tint(LabbyColors.primary(for: colorScheme))
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.ultraThinMaterial)
     }
 }
 

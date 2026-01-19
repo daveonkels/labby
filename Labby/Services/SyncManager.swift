@@ -37,7 +37,7 @@ final class SyncManager {
             }
 
             // Sync services
-            await syncServices(parsedServices, modelContext: modelContext)
+            await syncServices(parsedServices, trustSSL: connection.trustSelfSignedCertificates, modelContext: modelContext)
 
             // Sync bookmarks
             await syncBookmarks(parsedBookmarks, modelContext: modelContext)
@@ -59,7 +59,7 @@ final class SyncManager {
     }
 
     @MainActor
-    private func syncServices(_ parsedServices: [ParsedService], modelContext: ModelContext) async {
+    private func syncServices(_ parsedServices: [ParsedService], trustSSL: Bool, modelContext: ModelContext) async {
         // Get existing synced services (not manually added)
         let descriptor = FetchDescriptor<Service>(
             predicate: #Predicate { service in
@@ -80,6 +80,7 @@ final class SyncManager {
                     existing.iconURLString = parsedService.iconURL
                     existing.category = parsedService.category
                     existing.sortOrder = parsedService.sortOrder
+                    existing.trustSelfSignedCertificates = trustSSL
                 }
             } else {
                 // Create new service
@@ -90,7 +91,8 @@ final class SyncManager {
                     category: parsedService.category,
                     sortOrder: parsedService.sortOrder,
                     isManuallyAdded: false,
-                    homepageServiceId: parsedService.id
+                    homepageServiceId: parsedService.id,
+                    trustSelfSignedCertificates: trustSSL
                 )
                 modelContext.insert(service)
             }

@@ -19,10 +19,11 @@ enum InsecureURLSession {
     static var shared: URLSession { LabbyURLSession.shared }
 }
 
-// MARK: - SSL Certificate Handling for Trusted Domains
+// MARK: - SSL Certificate Handling for Homelab Services
 
-/// URLSession delegate that accepts self-signed certificates only for trusted domains.
-/// External services (CDNs, etc.) use standard SSL validation.
+/// URLSession delegate that accepts all SSL certificates for homelab services.
+/// Since Labby is designed for self-hosted services that often use self-signed
+/// certificates, we trust all server certificates by default.
 final class TrustedDomainSSLDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
     static let shared = TrustedDomainSSLDelegate()
 
@@ -42,16 +43,9 @@ final class TrustedDomainSSLDelegate: NSObject, URLSessionDelegate, @unchecked S
             return
         }
 
-        let host = challenge.protectionSpace.host
-
-        // Check if this host is in our trusted list
-        if TrustedDomainManager.shared.isHostTrusted(host) {
-            // Accept the certificate for trusted homelab domains
-            let credential = URLCredential(trust: serverTrust)
-            completionHandler(.useCredential, credential)
-        } else {
-            // Use default SSL validation for untrusted domains (external CDNs, etc.)
-            completionHandler(.performDefaultHandling, nil)
-        }
+        // For homelab services, trust all certificates
+        // This allows self-signed, expired, and custom CA certificates to work
+        let credential = URLCredential(trust: serverTrust)
+        completionHandler(.useCredential, credential)
     }
 }

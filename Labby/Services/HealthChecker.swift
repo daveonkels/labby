@@ -9,12 +9,22 @@ actor HealthChecker {
     private let cacheInterval: TimeInterval = 55 // skip if checked within this time
     private let maxConcurrentChecks = 5
 
-    /// URLSession with shorter timeouts for health checks (uses trusted domain SSL delegate)
-    private static let healthCheckSession: URLSession = {
+    /// URLSession for health checks that trusts all SSL certificates
+    /// Used for services with trustSelfSignedCertificates = true
+    private static let trustingSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 8
         config.timeoutIntervalForResource = 15
-        return URLSession(configuration: config, delegate: TrustedDomainSSLDelegate.shared, delegateQueue: nil)
+        return URLSession(configuration: config, delegate: TrustingHealthCheckDelegate.shared, delegateQueue: nil)
+    }()
+
+    /// URLSession for health checks with standard SSL validation
+    /// Used for services with trustSelfSignedCertificates = false
+    private static let strictSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 15
+        return URLSession(configuration: config, delegate: StrictHealthCheckDelegate.shared, delegateQueue: nil)
     }()
 
     private init() {}
@@ -50,16 +60,16 @@ actor HealthChecker {
 
         // Filter to only services that need checking and extract data for parallel processing
         let now = Date()
-        var checkTasks: [(service: Service, url: URL, name: String)] = []
+        var checkTasks: [(service: Service, url: URL, name: String, trustSSL: Bool)] = []
 
         for service in services {
             guard let url = service.url else { continue }
             guard let lastCheck = service.lastHealthCheck else {
-                checkTasks.append((service, url, service.name))
+                checkTasks.append((service, url, service.name, service.trustSelfSignedCertificates))
                 continue
             }
             if now.timeIntervalSince(lastCheck) >= cacheInterval {
-                checkTasks.append((service, url, service.name))
+                checkTasks.append((service, url, service.name, service.trustSelfSignedCertificates))
             }
         }
 
@@ -82,7 +92,7 @@ actor HealthChecker {
                 }
 
                 group.addTask {
-                    let isHealthy = await self.performHealthCheck(url: task.url, name: task.name)
+                    let isHealthy = await self.performHealthCheck(url: task.url, name: task.name, trustSSL: task.trustSSL)
                     return (index, isHealthy)
                 }
                 activeCount += 1
@@ -99,7 +109,8 @@ actor HealthChecker {
     }
 
     /// Performs the actual HTTP health check (no Service access)
-    nonisolated func performHealthCheck(url: URL, name: String) async -> Bool {
+    nonisolated func performHealthCheck(url: URL, name: String, trustSSL: Bool = true) async -> Bool {
+        let session = trustSSL ? Self.trustingSession : Self.strictSession
 
         // Try HEAD first for efficiency
         var request = URLRequest(url: url)
@@ -108,7 +119,7 @@ actor HealthChecker {
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
         do {
-            let (_, response) = try await Self.healthCheckSession.data(for: request)
+            let (_, response) = try await session.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
                 // If HEAD returns any 5xx error, fall back to GET
@@ -117,34 +128,49 @@ actor HealthChecker {
                 // - 502: Bad Gateway (e.g., NZBGet behind reverse proxy)
                 // - 503: Service Unavailable (e.g., Blue Iris)
                 if (500...599).contains(httpResponse.statusCode) {
-                    return await performGetHealthCheck(url: url, name: name)
+                    return await performGetHealthCheck(url: url, name: name, trustSSL: trustSSL)
                 }
 
+                // Any response from 200-499 (including redirects 3xx) means server is online
+                // We don't follow redirects, so 3xx responses come back directly
                 let isHealthy = (200...499).contains(httpResponse.statusCode)
                 return isHealthy
             }
             return false
         } catch {
+            // Check if the error is because we blocked a redirect (server is actually online)
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorHTTPTooManyRedirects {
+                return true
+            }
             return false
         }
     }
 
     /// Fallback GET health check for servers that don't support HEAD
-    nonisolated private func performGetHealthCheck(url: URL, name: String) async -> Bool {
+    nonisolated private func performGetHealthCheck(url: URL, name: String, trustSSL: Bool = true) async -> Bool {
+        let session = trustSSL ? Self.trustingSession : Self.strictSession
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = 8
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
         do {
-            let (_, response) = try await Self.healthCheckSession.data(for: request)
+            let (_, response) = try await session.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
+                // Any response from 200-499 (including redirects 3xx) means server is online
                 let isHealthy = (200...499).contains(httpResponse.statusCode)
                 return isHealthy
             }
             return false
         } catch {
+            // Check if the error is because we blocked a redirect (server is actually online)
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorHTTPTooManyRedirects {
+                return true
+            }
             return false
         }
     }
@@ -158,8 +184,71 @@ actor HealthChecker {
             return
         }
 
-        let isHealthy = await performHealthCheck(url: url, name: service.name)
+        let isHealthy = await performHealthCheck(url: url, name: service.name, trustSSL: service.trustSelfSignedCertificates)
         service.isHealthy = isHealthy
         service.lastHealthCheck = Date()
+    }
+}
+
+// MARK: - Health Check Session Delegates
+
+/// URLSession delegate for health checks that trusts ALL SSL certificates.
+/// Used when service.trustSelfSignedCertificates = true
+final class TrustingHealthCheckDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate, @unchecked Sendable {
+    static let shared = TrustingHealthCheckDelegate()
+
+    private override init() {
+        super.init()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        // Trust all certificates for homelab services
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let serverTrust = challenge.protectionSpace.serverTrust else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
+        let credential = URLCredential(trust: serverTrust)
+        completionHandler(.useCredential, credential)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        // Don't follow redirects - if we got a redirect response, the server is online
+        // This prevents issues with HTTPS->HTTP redirects being blocked by ATS
+        completionHandler(nil)
+    }
+}
+
+/// URLSession delegate for health checks with STRICT SSL validation.
+/// Used when service.trustSelfSignedCertificates = false
+final class StrictHealthCheckDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate, @unchecked Sendable {
+    static let shared = StrictHealthCheckDelegate()
+
+    private override init() {
+        super.init()
+    }
+
+    // No SSL override - uses default system validation
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        // Don't follow redirects - if we got a redirect response, the server is online
+        completionHandler(nil)
     }
 }

@@ -12,6 +12,7 @@ final class BrowserTab: Identifiable {
     var isLoading: Bool = false
     var canGoBack: Bool = false
     var canGoForward: Bool = false
+    var loadError: String?
 
     init(service: Service, restoredURL: URL? = nil) {
         self.id = UUID()

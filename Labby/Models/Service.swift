@@ -14,6 +14,7 @@ final class Service {
     var lastHealthCheck: Date?
     var isHealthy: Bool?
     var homepageServiceId: String?
+    var trustSelfSignedCertificates: Bool
 
     var url: URL? {
         URL(string: urlString)
@@ -33,7 +34,8 @@ final class Service {
         category: String? = nil,
         sortOrder: Int = 0,
         isManuallyAdded: Bool = false,
-        homepageServiceId: String? = nil
+        homepageServiceId: String? = nil,
+        trustSelfSignedCertificates: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -44,6 +46,7 @@ final class Service {
         self.sortOrder = sortOrder
         self.isManuallyAdded = isManuallyAdded
         self.homepageServiceId = homepageServiceId
+        self.trustSelfSignedCertificates = trustSelfSignedCertificates
         self.lastHealthCheck = nil
         self.isHealthy = nil
     }

@@ -162,6 +162,12 @@ struct SettingsView: View {
                     } label: {
                         Label("About Labby", systemImage: "info.circle")
                     }
+
+                    NavigationLink {
+                        DebugLogView()
+                    } label: {
+                        Label("Debug Logs", systemImage: "doc.text.magnifyingglass")
+                    }
                 }
 
                 // Danger Zone
