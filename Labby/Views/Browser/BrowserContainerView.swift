@@ -64,14 +64,13 @@ struct SwipeableBrowserView: View {
 
             // Close button - upper right (appears during tab navigation)
             if showCloseButton {
-                VStack {
+                GeometryReader { geometry in
                     HStack {
                         Spacer()
                         FloatingCloseButton(onClose: closeCurrentTab)
                             .padding(.trailing, 20)
-                            .padding(.top, 60) // Below status bar
+                            .padding(.top, geometry.safeAreaInsets.top + 4) // Just below status bar
                     }
-                    Spacer()
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
