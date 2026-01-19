@@ -300,23 +300,16 @@ struct WebViewRepresentable: UIViewRepresentable {
 // MARK: - SSL Diagnostics
 
 /// Pre-flight check to diagnose SSL connection issues
-/// Uses URLSession which gives us more control over certificate handling
+/// Uses LabbyURLSession which trusts self-signed certificates
 private func checkSSLConnection(for url: URL) async {
     logInfo("SSL check: Testing connection to \(url.host ?? "unknown")")
-
-    // Create a session that trusts all certificates for diagnostic purposes
-    let session = URLSession(
-        configuration: .ephemeral,
-        delegate: SSLBypassDelegate(),
-        delegateQueue: nil
-    )
 
     var request = URLRequest(url: url)
     request.httpMethod = "HEAD"
     request.timeoutInterval = 10
 
     do {
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await LabbyURLSession.shared.data(for: request)
         if let httpResponse = response as? HTTPURLResponse {
             logInfo("SSL check: Success! HTTP \(httpResponse.statusCode) from \(url.host ?? "unknown")")
         }
@@ -350,25 +343,6 @@ private func checkSSLConnection(for url: URL) async {
             if let sslErrorMessage = sslError.userInfo[NSLocalizedDescriptionKey] as? String {
                 logError("SSL check underlying message: \(sslErrorMessage)")
             }
-        }
-    }
-
-    session.invalidateAndCancel()
-}
-
-/// URLSession delegate that bypasses SSL certificate validation for diagnostics
-private class SSLBypassDelegate: NSObject, URLSessionDelegate {
-    func urlSession(
-        _ session: URLSession,
-        didReceive challenge: URLAuthenticationChallenge,
-        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
-    ) {
-        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-           let serverTrust = challenge.protectionSpace.serverTrust {
-            let credential = URLCredential(trust: serverTrust)
-            completionHandler(.useCredential, credential)
-        } else {
-            completionHandler(.performDefaultHandling, nil)
         }
     }
 }
