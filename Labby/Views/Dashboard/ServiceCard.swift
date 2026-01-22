@@ -108,15 +108,11 @@ struct ServiceCard: View {
     var body: some View {
         Group {
             if isEditMode {
-                // Edit mode: No button, just content with drag support and jiggle
+                // Edit mode: No button, just content with jiggle
+                // Drag gesture is handled by parent ServiceGridView
                 cardContent
-                    .onDrag {
-                        guard service.isManuallyAdded else {
-                            return NSItemProvider()
-                        }
-                        return NSItemProvider(object: service.id.uuidString as NSString)
-                    }
                     .modifier(JiggleModifier(isJiggling: service.isManuallyAdded))
+                    .contentShape(Rectangle()) // Ensure entire area is tappable for drag
             } else {
                 // Normal mode: Button with gestures
                 Button {
