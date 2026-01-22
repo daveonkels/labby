@@ -105,13 +105,20 @@ struct ServiceCard: View {
             }
         }
         .buttonStyle(ServiceCardButtonStyle())
-        .disabled(!hasValidURL || (isEditMode && !service.isManuallyAdded))
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.4)
-                .onEnded { _ in
-                    handleLongPress()
-                }
-        )
+        .disabled(!hasValidURL || isEditMode)
+        .if(!isEditMode) { view in
+            view.simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.4)
+                    .onEnded { _ in
+                        handleLongPress()
+                    }
+            )
+        }
+        .if(isEditMode && service.isManuallyAdded) { view in
+            view.draggable(ServiceTransfer(id: service.id)) {
+                ServiceCardDragPreview(service: service)
+            }
+        }
         .popover(isPresented: $showCloseTabPopover, arrowEdge: .top) {
             CloseServiceTabPopover(onClose: {
                 showCloseTabPopover = false
@@ -513,6 +520,56 @@ struct LongPressHintView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
+    }
+}
+
+// MARK: - Drag Preview
+
+struct ServiceCardDragPreview: View {
+    let service: Service
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Circle()
+                .fill(LabbyColors.primary(for: colorScheme).opacity(0.2))
+                .frame(width: 44, height: 44)
+                .overlay {
+                    if let sfSymbol = service.iconSFSymbol {
+                        Image(systemName: sfSymbol)
+                            .font(.title3)
+                            .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                    } else {
+                        Image(systemName: "app.fill")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+            Text(service.name)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+        }
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+        }
+    }
+}
+
+// MARK: - Conditional View Modifier
+
+extension View {
+    /// Applies a transformation if the condition is true
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
     }
 }
 

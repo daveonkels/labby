@@ -1,5 +1,7 @@
 import Foundation
 import SwiftData
+import UniformTypeIdentifiers
+import CoreTransferable
 
 @Model
 final class Service {
@@ -50,6 +52,22 @@ final class Service {
         self.lastHealthCheck = nil
         self.isHealthy = nil
     }
+}
+
+// MARK: - Drag and Drop Support
+
+/// Lightweight transferable wrapper for Service drag and drop
+/// Only carries the service ID - actual service is looked up in modelContext on drop
+struct ServiceTransfer: Codable, Transferable {
+    let id: UUID
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .serviceTransfer)
+    }
+}
+
+extension UTType {
+    static let serviceTransfer = UTType(exportedAs: "com.labby.service-transfer")
 }
 
 extension Service {

@@ -130,12 +130,24 @@ struct DashboardView: View {
                     } else {
                         // Show search results or grouped view
                         if !searchText.isEmpty || isFilterActive {
-                            ServiceGridView(services: filteredServices, isFirstSection: true, isEditMode: isEditMode)
+                            ServiceGridView(
+                                services: filteredServices,
+                                isFirstSection: true,
+                                isEditMode: isEditMode,
+                                category: nil,
+                                onReorder: handleServiceReorder
+                            )
                         } else {
                             ForEach(Array(groupedServices.enumerated()), id: \.element.0) { sectionIndex, group in
                                 let (category, categoryServices) = group
                                 Section {
-                                    ServiceGridView(services: categoryServices, isFirstSection: sectionIndex == 0, isEditMode: isEditMode)
+                                    ServiceGridView(
+                                        services: categoryServices,
+                                        isFirstSection: sectionIndex == 0,
+                                        isEditMode: isEditMode,
+                                        category: category,
+                                        onReorder: handleServiceReorder
+                                    )
                                 } header: {
                                     CategoryHeader(
                                         title: category,
@@ -186,6 +198,67 @@ struct DashboardView: View {
         // Force icon reload after sync
         NotificationCenter.default.post(name: .reloadServiceIcons, object: nil)
         isRefreshing = false
+    }
+
+    /// Handle service reorder from drag and drop
+    /// - Parameters:
+    ///   - serviceId: The ID of the service being moved
+    ///   - targetSortOrder: The sort order position to insert at
+    ///   - targetCategory: The category to move the service to (nil keeps current)
+    private func handleServiceReorder(_ serviceId: UUID, _ targetSortOrder: Int, _ targetCategory: String?) {
+        // Find the service being moved
+        guard let movedService = services.first(where: { $0.id == serviceId }) else { return }
+
+        // Only allow reordering manual services
+        guard movedService.isManuallyAdded else { return }
+
+        let oldCategory = movedService.category
+        let oldSortOrder = movedService.sortOrder
+
+        // Update category if moving to different section
+        if let newCategory = targetCategory, newCategory != oldCategory {
+            movedService.category = newCategory
+        }
+
+        // Get all manual services (we only reorder manual ones)
+        let manualServices = services.filter { $0.isManuallyAdded }
+
+        // Determine the effective category for sorting
+        let effectiveCategory = targetCategory ?? movedService.category
+
+        // Get services in target category (excluding the moved service)
+        var categoryServices = manualServices.filter {
+            $0.category == effectiveCategory && $0.id != serviceId
+        }.sorted { $0.sortOrder < $1.sortOrder }
+
+        // Insert at the target position
+        let insertIndex = min(targetSortOrder, categoryServices.count)
+
+        // Update sort orders for affected services
+        for (index, service) in categoryServices.enumerated() {
+            if index >= insertIndex {
+                service.sortOrder = index + 1
+            } else {
+                service.sortOrder = index
+            }
+        }
+
+        // Set the moved service's sort order
+        movedService.sortOrder = insertIndex
+
+        // If we moved out of a category, reorder remaining services in old category
+        if let old = oldCategory, old != effectiveCategory {
+            let oldCategoryServices = manualServices.filter {
+                $0.category == old && $0.id != serviceId
+            }.sorted { $0.sortOrder < $1.sortOrder }
+
+            for (index, service) in oldCategoryServices.enumerated() {
+                service.sortOrder = index
+            }
+        }
+
+        // Save changes
+        try? modelContext.save()
     }
 }
 
@@ -629,6 +702,8 @@ struct ServiceGridView: View {
     let services: [Service]
     var isFirstSection: Bool = false
     var isEditMode: Bool = false
+    var category: String? = nil
+    var onReorder: ((UUID, Int, String?) -> Void)? = nil
 
     /// Adaptive grid that maintains roughly square cards
     /// - Portrait: 2 columns (~160-190pt each)
@@ -645,11 +720,36 @@ struct ServiceGridView: View {
                     isFirstCard: isFirstSection && index == 0,
                     isEditMode: isEditMode
                 )
+                .if(isEditMode) { view in
+                    view.dropDestination(for: ServiceTransfer.self) { items, _ in
+                        guard let transfer = items.first else { return false }
+                        // Don't allow dropping on itself
+                        guard transfer.id != service.id else { return false }
+                        // Calculate new sort order (insert before this service)
+                        onReorder?(transfer.id, service.sortOrder, category)
+                        return true
+                    }
+                }
             }
 
-            // Add Service card in edit mode
+            // Add Service card in edit mode (also acts as drop target for end of list)
             if isEditMode {
                 AddServiceCard()
+                    .dropDestination(for: ServiceTransfer.self) { items, _ in
+                        guard let transfer = items.first else { return false }
+                        // Drop at end of this category
+                        let maxSortOrder = (services.map(\.sortOrder).max() ?? -1) + 1
+                        onReorder?(transfer.id, maxSortOrder, category)
+                        return true
+                    }
+            }
+        }
+        .if(isEditMode && services.isEmpty) { view in
+            // Empty section drop target
+            view.dropDestination(for: ServiceTransfer.self) { items, _ in
+                guard let transfer = items.first else { return false }
+                onReorder?(transfer.id, 0, category)
+                return true
             }
         }
     }
