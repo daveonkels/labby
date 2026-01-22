@@ -12,12 +12,16 @@ struct ConnectionSetupView: View {
     @State private var name = "My Homepage"
     @State private var urlString = ""
     @State private var trustSelfSignedCerts = true
+    @State private var username = ""
+    @State private var password = ""
+    @State private var showAuthFields = false
     @State private var isValidating = false
     @State private var validationError: String?
     @State private var isValid = false
     @State private var showingHomepageInfo = false
 
     private var isEditing: Bool { connection != nil }
+    private var hasCredentials: Bool { !username.isEmpty && !password.isEmpty }
 
     var body: some View {
         NavigationStack {
@@ -60,6 +64,28 @@ struct ConnectionSetupView: View {
                     RetroSectionHeader("Security", icon: "lock.shield")
                 } footer: {
                     Text("Enable this if your server uses a self-signed SSL certificate. Only affects connections to this server.")
+                }
+
+                Section {
+                    Toggle("Requires Authentication", isOn: $showAuthFields)
+
+                    if showAuthFields {
+                        TextField("Username", text: $username)
+                            .textContentType(.username)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+
+                        SecureField("Password", text: $password)
+                            .textContentType(.password)
+                    }
+                } header: {
+                    RetroSectionHeader("Authentication", icon: "person.badge.key")
+                } footer: {
+                    if showAuthFields {
+                        Text("For auth proxies like TinyAuth, Authelia, or Authentik. Credentials are stored securely in your device's Keychain.")
+                    } else {
+                        Text("Enable if your Homepage is behind an authentication proxy.")
+                    }
                 }
 
                 Section {
@@ -115,6 +141,16 @@ struct ConnectionSetupView: View {
                     urlString = connection.baseURLString
                     trustSelfSignedCerts = connection.trustSelfSignedCertificates
                     isValid = true // Assume existing connection is valid
+
+                    // Load authentication settings
+                    if let existingUsername = connection.username, !existingUsername.isEmpty {
+                        username = existingUsername
+                        showAuthFields = true
+                        // Load password from Keychain
+                        if let existingPassword = KeychainManager.getPassword(for: connection.id) {
+                            password = existingPassword
+                        }
+                    }
                 }
             }
         }
@@ -147,13 +183,28 @@ struct ConnectionSetupView: View {
             TrustedDomainManager.shared.trustHost(host)
         }
 
+        // Build request with optional authentication
+        var request = URLRequest(url: url)
+        if showAuthFields && hasCredentials {
+            let authValue = KeychainManager.basicAuthHeaderValue(username: username, password: password)
+            request.setValue(authValue, forHTTPHeaderField: "Authorization")
+        }
+
         // Try to connect
         do {
-            let (_, response) = try await LabbyURLSession.shared.data(from: url)
+            let (_, response) = try await LabbyURLSession.shared.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
                 if (200...299).contains(httpResponse.statusCode) {
                     isValid = true
+                } else if httpResponse.statusCode == 401 {
+                    if showAuthFields && hasCredentials {
+                        validationError = "Authentication failed. Check your username and password."
+                    } else {
+                        validationError = "Server requires authentication. Enable authentication and enter credentials."
+                    }
+                } else if httpResponse.statusCode == 403 {
+                    validationError = "Access forbidden. Check your credentials have permission to access this resource."
                 } else {
                     validationError = "Server returned status \(httpResponse.statusCode)"
                 }
@@ -171,6 +222,15 @@ struct ConnectionSetupView: View {
             existing.name = name
             existing.baseURLString = urlString
             existing.trustSelfSignedCertificates = trustSelfSignedCerts
+
+            // Update authentication
+            if showAuthFields && hasCredentials {
+                existing.username = username
+                KeychainManager.savePassword(password, for: existing.id)
+            } else {
+                existing.username = nil
+                KeychainManager.deletePassword(for: existing.id)
+            }
 
             // Update trusted domains based on setting
             if let host = existing.baseURL?.host {
@@ -190,8 +250,14 @@ struct ConnectionSetupView: View {
             let newConnection = HomepageConnection(
                 baseURLString: urlString,
                 name: name,
-                trustSelfSignedCertificates: trustSelfSignedCerts
+                trustSelfSignedCertificates: trustSelfSignedCerts,
+                username: showAuthFields && hasCredentials ? username : nil
             )
+
+            // Save password to Keychain if authentication is enabled
+            if showAuthFields && hasCredentials {
+                KeychainManager.savePassword(password, for: newConnection.id)
+            }
 
             // Register trusted domain if enabled
             if trustSelfSignedCerts, let host = newConnection.baseURL?.host {

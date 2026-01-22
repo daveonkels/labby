@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -26,6 +26,7 @@
 		70D8867C392B475FC0CCFC96 /* HealthChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9F33014B5896EA45890C9A /* HealthChecker.swift */; };
 		7B63898DBA2DCC4FEE4D43DF /* CategoryIconPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AF3568B2186492203E2F9D3 /* CategoryIconPreference.swift */; };
 		7C1726381E35F136FC2B7BBA /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F05ECDCB73AD504F8ADEA6 /* SearchResultsView.swift */; };
+		7E62DFDE486DBAAA518FAD4B /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 266A97E70F24C068AE820F82 /* KeychainManager.swift */; };
 		841BC37EF1443E3B7E831278 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D341D2E3A7C979565BC960D8 /* PrivacyInfo.xcprivacy */; };
 		89AA7F73DDA80647086E4054 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADB5E0539847223DC83CEC7 /* ConnectionSetupView.swift */; };
 		8FEACD44C55E3EA6B25EAB81 /* TrustedDomainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2A5F4A395E43189E9618A3 /* TrustedDomainManager.swift */; };
@@ -55,6 +56,7 @@
 /* Begin PBXFileReference section */
 		00B9D3F2E13684B01D66F3B6 /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
 		0ADB5E0539847223DC83CEC7 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
+		266A97E70F24C068AE820F82 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
 		281D0FFA00213F4E59B50E61 /* HomepageClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomepageClient.swift; sourceTree = "<group>"; };
 		36E271D99CF2C3FC87E23649 /* LabbyDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabbyDesign.swift; sourceTree = "<group>"; };
 		4C051EBA0ADDF863D2195977 /* InsecureURLSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsecureURLSession.swift; sourceTree = "<group>"; };
@@ -69,20 +71,20 @@
 		745093013C9115A23FE6C448 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		7AF3568B2186492203E2F9D3 /* CategoryIconPreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconPreference.swift; sourceTree = "<group>"; };
 		7C55EFBA5B0A1CD74AFAA94B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		8040BAFEEBAF6C483BE42937 /* LabbyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LabbyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8040BAFEEBAF6C483BE42937 /* LabbyTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LabbyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		88E3E3EA0E821CB9DB4F83DA /* BackgroundSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundSettingsView.swift; sourceTree = "<group>"; };
 		9CA9CAE2ABFF3F5F9C3DCDD8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9EA27D1AC26078A6EFE8AE37 /* CategoryIconPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconPicker.swift; sourceTree = "<group>"; };
 		A3F05ECDCB73AD504F8ADEA6 /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		B49FF50BEFDBEB36C8E1A675 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		B7F4F41B01216D28EFF9D8B0 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
-		D341D2E3A7C979565BC960D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		D341D2E3A7C979565BC960D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D625E92789276C22DAF95781 /* ServiceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceCard.swift; sourceTree = "<group>"; };
 		D871263CEF36C9B48C9B022A /* WebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRepresentable.swift; sourceTree = "<group>"; };
 		D9DD7EA3A7C20E3F50D397CE /* DebugLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogger.swift; sourceTree = "<group>"; };
 		DA2A5F4A395E43189E9618A3 /* TrustedDomainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedDomainManager.swift; sourceTree = "<group>"; };
 		E76FB8E8746669D2DE16B5FD /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
-		E7957DDE75045A1A0E691027 /* Labby.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Labby.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E7957DDE75045A1A0E691027 /* Labby.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Labby.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E86BD4B0E80A018A73A205ED /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EA9F33014B5896EA45890C9A /* HealthChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthChecker.swift; sourceTree = "<group>"; };
 		ECFE66D41F1795627A4506B8 /* BrowserContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserContainerView.swift; sourceTree = "<group>"; };
@@ -109,6 +111,7 @@
 				EA9F33014B5896EA45890C9A /* HealthChecker.swift */,
 				281D0FFA00213F4E59B50E61 /* HomepageClient.swift */,
 				4C051EBA0ADDF863D2195977 /* InsecureURLSession.swift */,
+				266A97E70F24C068AE820F82 /* KeychainManager.swift */,
 				E76FB8E8746669D2DE16B5FD /* SyncManager.swift */,
 				DA2A5F4A395E43189E9618A3 /* TrustedDomainManager.swift */,
 			);
@@ -287,13 +290,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					8845BF111B36691EC6D7FD65 = {
 						DevelopmentTeam = 592B8GFT9Q;
 						ProvisioningStyle = Automatic;
 					};
 					CBABC1C9AFF57E120B07D309 = {
+						DevelopmentTeam = 592B8GFT9Q;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -311,6 +315,7 @@
 			packageReferences = (
 				63CB3D6C638F9F677F0FB485 /* XCRemoteSwiftPackageReference "SwiftSoup" */,
 			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -356,6 +361,7 @@
 				BF803F9E670B25754B4760BE /* HomepageClient.swift in Sources */,
 				690A6461CC1352FE0B896E8B /* HomepageConnection.swift in Sources */,
 				EC9369BC303A8B6676D15F14 /* InsecureURLSession.swift in Sources */,
+				7E62DFDE486DBAAA518FAD4B /* KeychainManager.swift in Sources */,
 				481CB546CA952D64A949012F /* LabbyApp.swift in Sources */,
 				A530CC22605AC9AAE96B7976 /* LabbyDesign.swift in Sources */,
 				61AD70FF6BBDEC2C5B801CA5 /* SVGIconView.swift in Sources */,
@@ -426,7 +432,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YSH4P2HQ23;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Labby/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -444,7 +449,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -480,7 +484,6 @@
 				DEVELOPMENT_TEAM = 592B8GFT9Q;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -494,7 +497,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
@@ -505,7 +507,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -541,7 +542,6 @@
 				DEVELOPMENT_TEAM = 592B8GFT9Q;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -562,7 +562,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
@@ -575,7 +574,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YSH4P2HQ23;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Labby/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

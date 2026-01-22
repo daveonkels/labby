@@ -3,14 +3,26 @@ import SwiftSoup
 
 struct HomepageClient {
     let baseURL: URL
+    private let authHeader: String?
 
     init(baseURL: URL) {
         self.baseURL = baseURL
+        self.authHeader = nil
+    }
+
+    init(baseURL: URL, username: String, password: String) {
+        self.baseURL = baseURL
+        self.authHeader = KeychainManager.basicAuthHeaderValue(username: username, password: password)
     }
 
     /// Fetches and parses all data from Homepage HTML
     func fetchAll() async throws -> (services: [ParsedService], bookmarks: [ParsedBookmark]) {
-        let (data, _) = try await InsecureURLSession.shared.data(from: baseURL)
+        var request = URLRequest(url: baseURL)
+        if let authHeader {
+            request.setValue(authHeader, forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, _) = try await InsecureURLSession.shared.data(for: request)
 
         guard let html = String(data: data, encoding: .utf8) else {
             throw HomepageError.invalidHTML
@@ -365,7 +377,12 @@ struct HomepageClient {
 
     /// Validates connection to Homepage
     func validateConnection() async throws -> Bool {
-        let (_, response) = try await InsecureURLSession.shared.data(from: baseURL)
+        var request = URLRequest(url: baseURL)
+        if let authHeader {
+            request.setValue(authHeader, forHTTPHeaderField: "Authorization")
+        }
+
+        let (_, response) = try await InsecureURLSession.shared.data(for: request)
 
         if let httpResponse = response as? HTTPURLResponse {
             return (200...299).contains(httpResponse.statusCode)

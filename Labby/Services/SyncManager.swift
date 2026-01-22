@@ -28,7 +28,15 @@ final class SyncManager {
         lastError = nil
 
         do {
-            let client = HomepageClient(baseURL: baseURL)
+            // Create client with authentication if configured
+            let client: HomepageClient
+            if let username = connection.username,
+               !username.isEmpty,
+               let password = KeychainManager.getPassword(for: connection.id) {
+                client = HomepageClient(baseURL: baseURL, username: username, password: password)
+            } else {
+                client = HomepageClient(baseURL: baseURL)
+            }
             let (parsedServices, parsedBookmarks) = try await client.fetchAll()
 
             // If trust is enabled, also trust hosts of synced services

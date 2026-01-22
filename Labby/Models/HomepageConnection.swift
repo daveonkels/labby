@@ -10,9 +10,16 @@ final class HomepageConnection {
     var syncEnabled: Bool
     var trustSelfSignedCertificates: Bool
     var createdAt: Date
+    /// Username for HTTP Basic Auth (password stored in Keychain)
+    var username: String?
 
     var baseURL: URL? {
         URL(string: baseURLString)
+    }
+
+    /// Whether this connection has authentication configured
+    var hasAuthentication: Bool {
+        username != nil && !username!.isEmpty
     }
 
     init(
@@ -20,13 +27,15 @@ final class HomepageConnection {
         baseURLString: String,
         name: String = "My Homepage",
         syncEnabled: Bool = true,
-        trustSelfSignedCertificates: Bool = true
+        trustSelfSignedCertificates: Bool = true,
+        username: String? = nil
     ) {
         self.id = id
         self.baseURLString = baseURLString
         self.name = name
         self.syncEnabled = syncEnabled
         self.trustSelfSignedCertificates = trustSelfSignedCertificates
+        self.username = username
         self.createdAt = Date()
         self.lastSync = nil
     }
