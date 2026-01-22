@@ -9,9 +9,12 @@ struct SettingsView: View {
     @Query private var allSettings: [AppSettings]
 
     @State private var showingAddConnection = false
-    @State private var showingAddService = false
     @State private var showingClearDataAlert = false
     @State private var connectionToEdit: HomepageConnection?
+
+    private var manualServicesCount: Int {
+        services.filter { $0.isManuallyAdded }.count
+    }
 
     private var settings: AppSettings {
         if let existing = allSettings.first {
@@ -71,11 +74,11 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    RetroSectionHeader("Homepage Connection", icon: "link")
+                    RetroSectionHeader("Homepage (Optional)", icon: "link")
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(connections.isEmpty
-                             ? "Connect to your Homepage instance to sync services automatically."
+                             ? "Optionally sync services from a Homepage dashboard. You can also manage services manually without Homepage."
                              : "Swipe to edit or delete.")
 
                         Link(destination: URL(string: "https://gethomepage.dev")!) {
@@ -87,16 +90,22 @@ struct SettingsView: View {
 
                 // Manual Services
                 Section {
-                    Button {
-                        showingAddService = true
+                    NavigationLink {
+                        ManualServicesView()
                     } label: {
-                        Label("Add Service Manually", systemImage: "plus.circle.fill")
-                            .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                        HStack {
+                            Label("Manage Services", systemImage: "square.grid.2x2")
+                            Spacer()
+                            if manualServicesCount > 0 {
+                                Text("\(manualServicesCount)")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 } header: {
                     RetroSectionHeader("Manual Services", icon: "square.grid.2x2")
                 } footer: {
-                    Text("Add services that aren't in your Homepage config.")
+                    Text("Add and manage your own services without Homepage.")
                 }
 
                 // Appearance
@@ -191,9 +200,6 @@ struct SettingsView: View {
             }
             .sheet(item: $connectionToEdit) { connection in
                 ConnectionSetupView(connection: connection)
-            }
-            .sheet(isPresented: $showingAddService) {
-                AddServiceView()
             }
             .alert("Clear All Data?", isPresented: $showingClearDataAlert) {
                 Button("Cancel", role: .cancel) { }

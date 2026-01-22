@@ -280,6 +280,13 @@ struct AddServiceView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.selectedTab) private var selectedTab
+
+    /// Service to edit, or nil for creating a new service
+    var service: Service?
+
+    /// Whether to show the Homepage sync hint (when opened from dashboard)
+    var showHomepageHint: Bool = false
 
     @State private var name = ""
     @State private var urlString = ""
@@ -287,11 +294,13 @@ struct AddServiceView: View {
     @State private var iconSymbol = "app.fill"
     @State private var validationError: String?
 
+    private var isEditing: Bool { service != nil }
+
     private let commonSymbols = [
         "app.fill", "play.tv", "film", "tv", "movieclapper",
         "house", "server.rack", "network", "cloud", "doc",
         "folder", "photo", "music.note", "gamecontroller",
-        "chart.bar", "gear", "hammer", "wrench"
+        "chart.bar", "gear", "hammer", "wrench", "externaldrive.fill"
     ]
 
     var body: some View {
@@ -338,8 +347,37 @@ struct AddServiceView: View {
                 } header: {
                     RetroSectionHeader("Icon", icon: "star.fill")
                 }
+
+                // Homepage sync hint (only shown when adding from dashboard)
+                if showHomepageHint && !isEditing {
+                    Section {
+                        Button {
+                            dismiss()
+                            selectedTab.wrappedValue = .settings
+                        } label: {
+                            HStack {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Sync with Homepage")
+                                        .font(.subheadline.weight(.medium))
+                                    Text("Automatically import services from your Homepage dashboard")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    } header: {
+                        RetroSectionHeader("Already have a dashboard?", icon: "link")
+                    }
+                }
             }
-            .navigationTitle("Add Service")
+            .navigationTitle(isEditing ? "Edit Service" : "Add Service")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -353,6 +391,14 @@ struct AddServiceView: View {
                         saveService()
                     }
                     .disabled(name.isEmpty || urlString.isEmpty)
+                }
+            }
+            .onAppear {
+                if let service {
+                    name = service.name
+                    urlString = service.urlString
+                    category = service.category ?? ""
+                    iconSymbol = service.iconSFSymbol ?? "app.fill"
                 }
             }
         }
@@ -373,15 +419,31 @@ struct AddServiceView: View {
             return
         }
 
-        let service = Service(
-            name: name,
-            urlString: normalizedURL,
-            iconSFSymbol: iconSymbol,
-            category: category.isEmpty ? nil : category,
-            isManuallyAdded: true
-        )
+        if let existing = service {
+            // Update existing service
+            let urlChanged = existing.urlString != normalizedURL
+            existing.name = name
+            existing.urlString = normalizedURL
+            existing.iconSFSymbol = iconSymbol
+            existing.category = category.isEmpty ? nil : category
 
-        modelContext.insert(service)
+            // Reset health check if URL changed
+            if urlChanged {
+                existing.isHealthy = nil
+                existing.lastHealthCheck = nil
+            }
+        } else {
+            // Create new service
+            let newService = Service(
+                name: name,
+                urlString: normalizedURL,
+                iconSFSymbol: iconSymbol,
+                category: category.isEmpty ? nil : category,
+                isManuallyAdded: true
+            )
+            modelContext.insert(newService)
+        }
+
         dismiss()
     }
 }

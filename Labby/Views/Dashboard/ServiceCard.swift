@@ -5,6 +5,7 @@ import UIKit
 struct ServiceCard: View {
     let service: Service
     var isFirstCard: Bool = false
+    var isEditMode: Bool = false
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.selectedTab) private var selectedTab
@@ -15,6 +16,12 @@ struct ServiceCard: View {
     @State private var showCloseTabPopover = false
     @State private var showLongPressHint = false
     @State private var didLongPress = false
+    @State private var showDeleteAlert = false
+
+    /// Whether this card can be deleted (only manual services in edit mode)
+    private var canDelete: Bool {
+        isEditMode && service.isManuallyAdded
+    }
 
     private var settings: AppSettings? { allSettings.first }
 
@@ -66,16 +73,39 @@ struct ServiceCard: View {
             .opacity(hasValidURL ? 1.0 : 0.6)
             .overlay(alignment: .topLeading) {
                 // Green dot indicator when tab is open
-                if hasOpenTab {
+                if hasOpenTab && !isEditMode {
                     Circle()
                         .fill(LabbyColors.primary(for: colorScheme))
                         .frame(width: 10, height: 10)
                         .padding(12)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                // Delete button in edit mode (manual services only)
+                if canDelete {
+                    Button {
+                        showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white, .red)
+                            .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(8)
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .overlay {
+                // Dim synced services in edit mode
+                if isEditMode && !service.isManuallyAdded {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial.opacity(0.5))
+                }
+            }
         }
         .buttonStyle(ServiceCardButtonStyle())
-        .disabled(!hasValidURL)
+        .disabled(!hasValidURL || (isEditMode && !service.isManuallyAdded))
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.4)
                 .onEnded { _ in
@@ -96,6 +126,14 @@ struct ServiceCard: View {
         .popover(isPresented: $showLongPressHint, arrowEdge: .bottom) {
             LongPressHintView(onDismiss: dismissLongPressHint)
                 .presentationCompactAdaptation(.popover)
+        }
+        .alert("Delete Service?", isPresented: $showDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteService()
+            }
+        } message: {
+            Text("Are you sure you want to delete \"\(service.name)\"?")
         }
         .onAppear {
             // Show long-press hint on first card if user hasn't seen it
@@ -174,6 +212,13 @@ struct ServiceCard: View {
         if let tab = tabManager.tabs.first(where: { $0.service.id == service.id }) {
             tabManager.closeTab(tab)
         }
+    }
+
+    private func deleteService() {
+        // Close any open tab first
+        closeServiceTab()
+        // Delete the service
+        modelContext.delete(service)
     }
 }
 

@@ -173,6 +173,9 @@ struct OnboardingView: View {
     }
 
     private func skipOnboarding() {
+        // Insert demo services for new users
+        insertDemoServices()
+
         if let settings = allSettings.first {
             settings.hasCompletedOnboarding = true
         } else {
@@ -180,6 +183,47 @@ struct OnboardingView: View {
             modelContext.insert(newSettings)
         }
         try? modelContext.save()
+    }
+
+    private func insertDemoServices() {
+        let demoServices = [
+            Service(
+                name: "Jellyfin",
+                urlString: "https://jellyfin.org",
+                iconSFSymbol: "play.tv",
+                category: "Media",
+                sortOrder: 0,
+                isManuallyAdded: true
+            ),
+            Service(
+                name: "Proxmox",
+                urlString: "https://www.proxmox.com",
+                iconSFSymbol: "server.rack",
+                category: "Infrastructure",
+                sortOrder: 1,
+                isManuallyAdded: true
+            ),
+            Service(
+                name: "TrueNAS",
+                urlString: "https://www.truenas.com",
+                iconSFSymbol: "externaldrive.fill",
+                category: "Storage",
+                sortOrder: 2,
+                isManuallyAdded: true
+            ),
+            Service(
+                name: "Home Assistant",
+                urlString: "https://www.home-assistant.io",
+                iconSFSymbol: "house.fill",
+                category: "Automation",
+                sortOrder: 3,
+                isManuallyAdded: true
+            )
+        ]
+
+        for service in demoServices {
+            modelContext.insert(service)
+        }
     }
 }
 

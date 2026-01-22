@@ -16,6 +16,12 @@ struct DashboardView: View {
     @Binding var searchText: String
     @State private var isRefreshing = false
     @State private var healthFilter: HealthFilter? = nil
+    @State private var isEditMode = false
+
+    /// Whether there are any manual services that can be edited
+    private var hasManualServices: Bool {
+        services.contains { $0.isManuallyAdded }
+    }
 
     private var isFilterActive: Bool {
         healthFilter != nil
@@ -73,6 +79,17 @@ struct DashboardView: View {
             dashboardContent
                 .navigationTitle(isFilterActive ? "" : dashboardTitle)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    if hasManualServices {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button(isEditMode ? "Done" : "Edit") {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    isEditMode.toggle()
+                                }
+                            }
+                        }
+                    }
+                }
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
                 .refreshable {
                     await refreshServices()
@@ -113,12 +130,12 @@ struct DashboardView: View {
                     } else {
                         // Show search results or grouped view
                         if !searchText.isEmpty || isFilterActive {
-                            ServiceGridView(services: filteredServices, isFirstSection: true)
+                            ServiceGridView(services: filteredServices, isFirstSection: true, isEditMode: isEditMode)
                         } else {
                             ForEach(Array(groupedServices.enumerated()), id: \.element.0) { sectionIndex, group in
                                 let (category, categoryServices) = group
                                 Section {
-                                    ServiceGridView(services: categoryServices, isFirstSection: sectionIndex == 0)
+                                    ServiceGridView(services: categoryServices, isFirstSection: sectionIndex == 0, isEditMode: isEditMode)
                                 } header: {
                                     CategoryHeader(
                                         title: category,
@@ -430,7 +447,7 @@ struct EmptyDashboardView: View {
                 }
 
                 NavigationLink {
-                    AddServiceView()
+                    AddServiceView(showHomepageHint: true)
                 } label: {
                     Label("Add Service Manually", systemImage: "plus.circle")
                         .retroStyle(.subheadline, weight: .medium)
@@ -611,6 +628,7 @@ struct CategoryHeader: View {
 struct ServiceGridView: View {
     let services: [Service]
     var isFirstSection: Bool = false
+    var isEditMode: Bool = false
 
     /// Adaptive grid that maintains roughly square cards
     /// - Portrait: 2 columns (~160-190pt each)
@@ -622,9 +640,60 @@ struct ServiceGridView: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: 16) {
             ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
-                ServiceCard(service: service, isFirstCard: isFirstSection && index == 0)
+                ServiceCard(
+                    service: service,
+                    isFirstCard: isFirstSection && index == 0,
+                    isEditMode: isEditMode
+                )
+            }
+
+            // Add Service card in edit mode
+            if isEditMode {
+                AddServiceCard()
             }
         }
+    }
+}
+
+struct AddServiceCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var showingAddService = false
+
+    var body: some View {
+        Button {
+            showingAddService = true
+        } label: {
+            VStack(spacing: 16) {
+                // Plus icon in circle
+                Circle()
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 56, height: 56)
+                    .overlay {
+                        Image(systemName: "plus")
+                            .font(.title2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+
+                Text("Add Service")
+                    .retroStyle(.subheadline, weight: .medium)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+            .padding(.horizontal, 16)
+            .background {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+                    .foregroundStyle(Color.secondary.opacity(0.3))
+            }
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingAddService) {
+            AddServiceView(showHomepageHint: true)
+        }
+        .accessibilityLabel("Add new service")
+        .accessibilityHint("Opens form to add a new manual service")
     }
 }
 

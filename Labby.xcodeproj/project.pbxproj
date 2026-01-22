@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -38,6 +38,7 @@
 		C59839188809977772CD20E4 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F76E7A7A97F1F42963CDD27F /* AboutView.swift */; };
 		D1DE42DE9F9D76836042BF73 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CA9CAE2ABFF3F5F9C3DCDD8 /* ContentView.swift */; };
 		D3BEDC9F0FE2DF0AC46B9E95 /* ServiceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D625E92789276C22DAF95781 /* ServiceCard.swift */; };
+		D5634BDC9A33DD435FE84600 /* ManualServicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1242F302A0AB45B5C6432CAF /* ManualServicesView.swift */; };
 		DD166149FB72F9D9D092FEF2 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B9D3F2E13684B01D66F3B6 /* Bookmark.swift */; };
 		EC9369BC303A8B6676D15F14 /* InsecureURLSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C051EBA0ADDF863D2195977 /* InsecureURLSession.swift */; };
 		F44E0B7B6B3764B0A9129056 /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = 3AE2F43EC28B165C625DDA05 /* SwiftSoup */; };
@@ -56,6 +57,7 @@
 /* Begin PBXFileReference section */
 		00B9D3F2E13684B01D66F3B6 /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
 		0ADB5E0539847223DC83CEC7 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
+		1242F302A0AB45B5C6432CAF /* ManualServicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualServicesView.swift; sourceTree = "<group>"; };
 		266A97E70F24C068AE820F82 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
 		281D0FFA00213F4E59B50E61 /* HomepageClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomepageClient.swift; sourceTree = "<group>"; };
 		36E271D99CF2C3FC87E23649 /* LabbyDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabbyDesign.swift; sourceTree = "<group>"; };
@@ -78,13 +80,13 @@
 		A3F05ECDCB73AD504F8ADEA6 /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		B49FF50BEFDBEB36C8E1A675 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		B7F4F41B01216D28EFF9D8B0 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
-		D341D2E3A7C979565BC960D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		D341D2E3A7C979565BC960D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D625E92789276C22DAF95781 /* ServiceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceCard.swift; sourceTree = "<group>"; };
 		D871263CEF36C9B48C9B022A /* WebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRepresentable.swift; sourceTree = "<group>"; };
 		D9DD7EA3A7C20E3F50D397CE /* DebugLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogger.swift; sourceTree = "<group>"; };
 		DA2A5F4A395E43189E9618A3 /* TrustedDomainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedDomainManager.swift; sourceTree = "<group>"; };
 		E76FB8E8746669D2DE16B5FD /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
-		E7957DDE75045A1A0E691027 /* Labby.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Labby.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E7957DDE75045A1A0E691027 /* Labby.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Labby.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E86BD4B0E80A018A73A205ED /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EA9F33014B5896EA45890C9A /* HealthChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthChecker.swift; sourceTree = "<group>"; };
 		ECFE66D41F1795627A4506B8 /* BrowserContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserContainerView.swift; sourceTree = "<group>"; };
@@ -206,6 +208,7 @@
 				88E3E3EA0E821CB9DB4F83DA /* BackgroundSettingsView.swift */,
 				0ADB5E0539847223DC83CEC7 /* ConnectionSetupView.swift */,
 				4E1C4742C4B70E87000C1FEB /* DebugLogView.swift */,
+				1242F302A0AB45B5C6432CAF /* ManualServicesView.swift */,
 				E86BD4B0E80A018A73A205ED /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -297,7 +300,6 @@
 						ProvisioningStyle = Automatic;
 					};
 					CBABC1C9AFF57E120B07D309 = {
-						DevelopmentTeam = 592B8GFT9Q;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -315,7 +317,6 @@
 			packageReferences = (
 				63CB3D6C638F9F677F0FB485 /* XCRemoteSwiftPackageReference "SwiftSoup" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -364,6 +365,7 @@
 				7E62DFDE486DBAAA518FAD4B /* KeychainManager.swift in Sources */,
 				481CB546CA952D64A949012F /* LabbyApp.swift in Sources */,
 				A530CC22605AC9AAE96B7976 /* LabbyDesign.swift in Sources */,
+				D5634BDC9A33DD435FE84600 /* ManualServicesView.swift in Sources */,
 				61AD70FF6BBDEC2C5B801CA5 /* SVGIconView.swift in Sources */,
 				7C1726381E35F136FC2B7BBA /* SearchResultsView.swift in Sources */,
 				5824E8BBC3CAFB5F08AB4FC8 /* Service.swift in Sources */,
@@ -432,6 +434,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YSH4P2HQ23;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Labby/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -574,6 +577,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YSH4P2HQ23;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Labby/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
