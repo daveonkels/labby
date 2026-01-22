@@ -17,7 +17,7 @@ struct ServiceCard: View {
     @State private var showLongPressHint = false
     @State private var didLongPress = false
     @State private var showDeleteAlert = false
-    @State private var jiggleRotation: Double = -1.5
+    @State private var isJiggling: Bool = false
 
     /// Whether this card can be deleted (only manual services in edit mode)
     private var canDelete: Bool {
@@ -108,7 +108,7 @@ struct ServiceCard: View {
     var body: some View {
         Group {
             if isEditMode {
-                // Edit mode: No button, just content with drag support
+                // Edit mode: No button, just content with drag support and jiggle
                 cardContent
                     .onDrag {
                         guard service.isManuallyAdded else {
@@ -116,13 +116,7 @@ struct ServiceCard: View {
                         }
                         return NSItemProvider(object: service.id.uuidString as NSString)
                     }
-                    .rotationEffect(.degrees(service.isManuallyAdded ? jiggleRotation : 0))
-                    .animation(
-                        service.isManuallyAdded
-                            ? .easeInOut(duration: 0.12).repeatForever(autoreverses: true)
-                            : .default,
-                        value: isEditMode
-                    )
+                    .modifier(JiggleModifier(isJiggling: service.isManuallyAdded))
             } else {
                 // Normal mode: Button with gestures
                 Button {
@@ -171,14 +165,6 @@ struct ServiceCard: View {
                     try? await Task.sleep(for: .seconds(1.5))
                     showLongPressHint = true
                 }
-            }
-            // Start jiggle with random offset to desync cards
-            jiggleRotation = Bool.random() ? -1.5 : 1.5
-        }
-        .onChange(of: isEditMode) { _, newValue in
-            if newValue {
-                // Alternate jiggle direction
-                jiggleRotation = -jiggleRotation
             }
         }
         .accessibilityLabel("\(service.name) service")
@@ -549,6 +535,36 @@ struct LongPressHintView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
+    }
+}
+
+// MARK: - Jiggle Animation
+
+struct JiggleModifier: ViewModifier {
+    let isJiggling: Bool
+
+    @State private var rotation: Double = 0
+
+    func body(content: Content) -> some View {
+        content
+            .rotationEffect(.degrees(rotation))
+            .onChange(of: isJiggling, initial: true) { _, jiggling in
+                if jiggling {
+                    // Start with random phase so cards don't sync
+                    let startAngle = Bool.random() ? -1.5 : 1.5
+                    rotation = startAngle
+                    withAnimation(
+                        .easeInOut(duration: 0.1)
+                        .repeatForever(autoreverses: true)
+                    ) {
+                        rotation = -startAngle
+                    }
+                } else {
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        rotation = 0
+                    }
+                }
+            }
     }
 }
 
