@@ -17,10 +17,81 @@ struct ServiceCard: View {
     @State private var showLongPressHint = false
     @State private var didLongPress = false
     @State private var showDeleteAlert = false
+    @State private var jiggleRotation: Double = -1.5
 
     /// Whether this card can be deleted (only manual services in edit mode)
     private var canDelete: Bool {
         isEditMode && service.isManuallyAdded
+    }
+
+    /// The visual content of the card (shared between edit and normal modes)
+    @ViewBuilder
+    private var cardContent: some View {
+        VStack(spacing: 16) {
+            // Icon container
+            Circle()
+                .fill(.clear)
+                .frame(width: 56, height: 56)
+                .overlay {
+                    ServiceIcon(service: service)
+                        .frame(width: 28, height: 28)
+                }
+                .glassEffect(.regular, in: Circle())
+
+            // Name + Status
+            VStack(spacing: 6) {
+                Text(service.name)
+                    .retroStyle(.subheadline, weight: .semibold)
+                    .lineLimit(1)
+                    .foregroundStyle(hasValidURL ? .primary : .secondary)
+
+                // Status badge - only colored element
+                if hasValidURL {
+                    HealthBadge(isHealthy: service.isHealthy)
+                } else {
+                    Label("Widget", systemImage: "square.grid.2x2")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 16)
+        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .opacity(hasValidURL ? 1.0 : 0.6)
+        .overlay(alignment: .topLeading) {
+            // Green dot indicator when tab is open
+            if hasOpenTab && !isEditMode {
+                Circle()
+                    .fill(LabbyColors.primary(for: colorScheme))
+                    .frame(width: 10, height: 10)
+                    .padding(12)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            // Delete button in edit mode (manual services only)
+            if canDelete {
+                Button {
+                    showDeleteAlert = true
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.white, .red)
+                        .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                }
+                .buttonStyle(.plain)
+                .padding(8)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .overlay {
+            // Dim synced services in edit mode
+            if isEditMode && !service.isManuallyAdded {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial.opacity(0.5))
+            }
+        }
     }
 
     private var settings: AppSettings? { allSettings.first }
@@ -35,88 +106,38 @@ struct ServiceCard: View {
     }
 
     var body: some View {
-        Button {
-            openService()
-        } label: {
-            VStack(spacing: 16) {
-                // Icon container
-                Circle()
-                    .fill(.clear)
-                    .frame(width: 56, height: 56)
-                    .overlay {
-                        ServiceIcon(service: service)
-                            .frame(width: 28, height: 28)
+        Group {
+            if isEditMode {
+                // Edit mode: No button, just content with drag support
+                cardContent
+                    .onDrag {
+                        guard service.isManuallyAdded else {
+                            return NSItemProvider()
+                        }
+                        return NSItemProvider(object: service.id.uuidString as NSString)
                     }
-                    .glassEffect(.regular, in: Circle())
-
-                // Name + Status
-                VStack(spacing: 6) {
-                    Text(service.name)
-                        .retroStyle(.subheadline, weight: .semibold)
-                        .lineLimit(1)
-                        .foregroundStyle(hasValidURL ? .primary : .secondary)
-
-                    // Status badge - only colored element
-                    if hasValidURL {
-                        HealthBadge(isHealthy: service.isHealthy)
-                    } else {
-                        Label("Widget", systemImage: "square.grid.2x2")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
+                    .rotationEffect(.degrees(service.isManuallyAdded ? jiggleRotation : 0))
+                    .animation(
+                        service.isManuallyAdded
+                            ? .easeInOut(duration: 0.12).repeatForever(autoreverses: true)
+                            : .default,
+                        value: isEditMode
+                    )
+            } else {
+                // Normal mode: Button with gestures
+                Button {
+                    openService()
+                } label: {
+                    cardContent
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
-            .padding(.horizontal, 16)
-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .opacity(hasValidURL ? 1.0 : 0.6)
-            .overlay(alignment: .topLeading) {
-                // Green dot indicator when tab is open
-                if hasOpenTab && !isEditMode {
-                    Circle()
-                        .fill(LabbyColors.primary(for: colorScheme))
-                        .frame(width: 10, height: 10)
-                        .padding(12)
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                // Delete button in edit mode (manual services only)
-                if canDelete {
-                    Button {
-                        showDeleteAlert = true
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white, .red)
-                            .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(8)
-                    .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .overlay {
-                // Dim synced services in edit mode
-                if isEditMode && !service.isManuallyAdded {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.ultraThinMaterial.opacity(0.5))
-                }
-            }
-        }
-        .buttonStyle(ServiceCardButtonStyle())
-        .disabled(!hasValidURL || isEditMode)
-        .if(!isEditMode) { view in
-            view.simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.4)
-                    .onEnded { _ in
-                        handleLongPress()
-                    }
-            )
-        }
-        .if(isEditMode && service.isManuallyAdded) { view in
-            view.draggable(ServiceTransfer(id: service.id)) {
-                ServiceCardDragPreview(service: service)
+                .buttonStyle(ServiceCardButtonStyle())
+                .disabled(!hasValidURL)
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.4)
+                        .onEnded { _ in
+                            handleLongPress()
+                        }
+                )
             }
         }
         .popover(isPresented: $showCloseTabPopover, arrowEdge: .top) {
@@ -150,6 +171,14 @@ struct ServiceCard: View {
                     try? await Task.sleep(for: .seconds(1.5))
                     showLongPressHint = true
                 }
+            }
+            // Start jiggle with random offset to desync cards
+            jiggleRotation = Bool.random() ? -1.5 : 1.5
+        }
+        .onChange(of: isEditMode) { _, newValue in
+            if newValue {
+                // Alternate jiggle direction
+                jiggleRotation = -jiggleRotation
             }
         }
         .accessibilityLabel("\(service.name) service")

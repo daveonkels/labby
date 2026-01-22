@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 enum HealthFilter: Equatable {
     case online
@@ -720,38 +721,56 @@ struct ServiceGridView: View {
                     isFirstCard: isFirstSection && index == 0,
                     isEditMode: isEditMode
                 )
-                .if(isEditMode) { view in
-                    view.dropDestination(for: ServiceTransfer.self) { items, _ in
-                        guard let transfer = items.first else { return false }
-                        // Don't allow dropping on itself
-                        guard transfer.id != service.id else { return false }
-                        // Calculate new sort order (insert before this service)
-                        onReorder?(transfer.id, service.sortOrder, category)
-                        return true
-                    }
+                .onDrop(of: [.text], isTargeted: nil) { providers in
+                    guard isEditMode else { return false }
+                    return handleDrop(providers: providers, targetService: service)
                 }
             }
 
             // Add Service card in edit mode (also acts as drop target for end of list)
             if isEditMode {
                 AddServiceCard()
-                    .dropDestination(for: ServiceTransfer.self) { items, _ in
-                        guard let transfer = items.first else { return false }
-                        // Drop at end of this category
-                        let maxSortOrder = (services.map(\.sortOrder).max() ?? -1) + 1
-                        onReorder?(transfer.id, maxSortOrder, category)
-                        return true
+                    .onDrop(of: [.text], isTargeted: nil) { providers in
+                        return handleDropAtEnd(providers: providers)
                     }
             }
         }
-        .if(isEditMode && services.isEmpty) { view in
-            // Empty section drop target
-            view.dropDestination(for: ServiceTransfer.self) { items, _ in
-                guard let transfer = items.first else { return false }
-                onReorder?(transfer.id, 0, category)
-                return true
+        .onDrop(of: [.text], isTargeted: nil) { providers in
+            // Handle drop on empty area or at end
+            guard isEditMode else { return false }
+            return handleDropAtEnd(providers: providers)
+        }
+    }
+
+    private func handleDrop(providers: [NSItemProvider], targetService: Service) -> Bool {
+        guard let provider = providers.first else { return false }
+
+        provider.loadObject(ofClass: NSString.self) { item, _ in
+            guard let uuidString = item as? String,
+                  let uuid = UUID(uuidString: uuidString) else { return }
+            // Don't allow dropping on itself
+            guard uuid != targetService.id else { return }
+
+            DispatchQueue.main.async {
+                onReorder?(uuid, targetService.sortOrder, category)
             }
         }
+        return true
+    }
+
+    private func handleDropAtEnd(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+
+        provider.loadObject(ofClass: NSString.self) { item, _ in
+            guard let uuidString = item as? String,
+                  let uuid = UUID(uuidString: uuidString) else { return }
+
+            DispatchQueue.main.async {
+                let maxSortOrder = (services.map(\.sortOrder).max() ?? -1) + 1
+                onReorder?(uuid, maxSortOrder, category)
+            }
+        }
+        return true
     }
 }
 
