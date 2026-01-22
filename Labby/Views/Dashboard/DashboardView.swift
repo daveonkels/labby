@@ -79,7 +79,7 @@ struct DashboardView: View {
                 }
                 .task {
                     // Start health monitoring when dashboard appears
-                    await HealthChecker.shared.startMonitoring(modelContext: modelContext)
+                    HealthChecker.shared.startMonitoring(modelContext: modelContext)
                 }
         }
     }

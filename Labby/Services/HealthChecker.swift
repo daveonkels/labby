@@ -1,7 +1,9 @@
 import Foundation
 import SwiftData
 
-actor HealthChecker {
+/// Health checker that runs on the MainActor to safely interact with SwiftData
+@MainActor
+final class HealthChecker {
     static let shared = HealthChecker()
 
     private var monitoringTask: Task<Void, Never>?
@@ -11,7 +13,7 @@ actor HealthChecker {
 
     /// URLSession for health checks that trusts all SSL certificates
     /// Used for services with trustSelfSignedCertificates = true
-    private static let trustingSession: URLSession = {
+    private nonisolated static let trustingSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 8
         config.timeoutIntervalForResource = 15
@@ -20,7 +22,7 @@ actor HealthChecker {
 
     /// URLSession for health checks with standard SSL validation
     /// Used for services with trustSelfSignedCertificates = false
-    private static let strictSession: URLSession = {
+    private nonisolated static let strictSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 8
         config.timeoutIntervalForResource = 15
@@ -32,13 +34,11 @@ actor HealthChecker {
     /// Starts background health monitoring. Restarts with new context if called again.
     func startMonitoring(modelContext: ModelContext) {
         // Cancel existing monitoring task if running
-        if monitoringTask != nil {
-            monitoringTask?.cancel()
-        }
+        monitoringTask?.cancel()
 
-        monitoringTask = Task { @MainActor in
+        monitoringTask = Task {
             while !Task.isCancelled {
-                await HealthChecker.shared.checkAllServices(modelContext: modelContext)
+                await checkAllServices(modelContext: modelContext)
                 try? await Task.sleep(for: .seconds(checkInterval))
             }
         }
@@ -50,7 +50,6 @@ actor HealthChecker {
     }
 
     /// Checks all services, respecting cache interval
-    @MainActor
     func checkAllServices(modelContext: ModelContext) async {
         let descriptor = FetchDescriptor<Service>()
 
@@ -92,7 +91,7 @@ actor HealthChecker {
                 }
 
                 group.addTask {
-                    let isHealthy = await self.performHealthCheck(url: task.url, name: task.name, trustSSL: task.trustSSL)
+                    let isHealthy = await Self.performHealthCheck(url: task.url, name: task.name, trustSSL: task.trustSSL)
                     return (index, isHealthy)
                 }
                 activeCount += 1
@@ -109,7 +108,7 @@ actor HealthChecker {
     }
 
     /// Performs the actual HTTP health check (no Service access)
-    nonisolated func performHealthCheck(url: URL, name: String, trustSSL: Bool = true) async -> Bool {
+    nonisolated static func performHealthCheck(url: URL, name: String, trustSSL: Bool = true) async -> Bool {
         let session = trustSSL ? Self.trustingSession : Self.strictSession
 
         // Try HEAD first for efficiency
@@ -128,7 +127,7 @@ actor HealthChecker {
                 // - 502: Bad Gateway (e.g., NZBGet behind reverse proxy)
                 // - 503: Service Unavailable (e.g., Blue Iris)
                 if (500...599).contains(httpResponse.statusCode) {
-                    return await performGetHealthCheck(url: url, name: name, trustSSL: trustSSL)
+                    return await Self.performGetHealthCheck(url: url, name: name, trustSSL: trustSSL)
                 }
 
                 // Any response from 200-499 (including redirects 3xx) means server is online
@@ -148,7 +147,7 @@ actor HealthChecker {
     }
 
     /// Fallback GET health check for servers that don't support HEAD
-    nonisolated private func performGetHealthCheck(url: URL, name: String, trustSSL: Bool = true) async -> Bool {
+    nonisolated private static func performGetHealthCheck(url: URL, name: String, trustSSL: Bool = true) async -> Bool {
         let session = trustSSL ? Self.trustingSession : Self.strictSession
 
         var request = URLRequest(url: url)
@@ -176,7 +175,6 @@ actor HealthChecker {
     }
 
     /// Force refresh a single service (ignores cache)
-    @MainActor
     func refreshService(_ service: Service) async {
         guard let url = service.url else {
             service.isHealthy = false
@@ -184,7 +182,7 @@ actor HealthChecker {
             return
         }
 
-        let isHealthy = await performHealthCheck(url: url, name: service.name, trustSSL: service.trustSelfSignedCertificates)
+        let isHealthy = await Self.performHealthCheck(url: url, name: service.name, trustSSL: service.trustSelfSignedCertificates)
         service.isHealthy = isHealthy
         service.lastHealthCheck = Date()
     }

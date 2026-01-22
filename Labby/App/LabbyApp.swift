@@ -3,14 +3,19 @@ import SwiftData
 
 @main
 struct LabbyApp: App {
+    let sharedModelContainer: ModelContainer
+
     init() {
         configureNavigationBarAppearance()
         configureTabBarAppearance()
         // Clear debug logs from previous sessions
         DebugLogger.shared.clear()
+
+        // Initialize ModelContainer with recovery logic
+        sharedModelContainer = Self.createModelContainer()
     }
 
-    var sharedModelContainer: ModelContainer = {
+    private static func createModelContainer() -> ModelContainer {
         let schema = Schema([
             Service.self,
             HomepageConnection.self,
@@ -26,9 +31,63 @@ struct LabbyApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // Log the error for debugging
+            print("⚠️ ModelContainer creation failed: \(error)")
+            print("⚠️ Attempting recovery by deleting corrupted database...")
+
+            // Attempt recovery: delete corrupted database and retry
+            if deleteCorruptedDatabase() {
+                do {
+                    return try ModelContainer(for: schema, configurations: [modelConfiguration])
+                } catch {
+                    print("❌ Recovery failed: \(error)")
+                }
+            }
+
+            // Last resort: use in-memory storage so app doesn't crash
+            print("⚠️ Using in-memory storage as fallback")
+            let inMemoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            do {
+                return try ModelContainer(for: schema, configurations: [inMemoryConfig])
+            } catch {
+                // This should never happen, but if it does, we have no choice
+                fatalError("Could not create even in-memory ModelContainer: \(error)")
+            }
         }
-    }()
+    }
+
+    /// Attempts to delete the corrupted SwiftData database
+    private static func deleteCorruptedDatabase() -> Bool {
+        let fileManager = FileManager.default
+        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return false
+        }
+
+        // SwiftData stores its database in Application Support with default.store name
+        let storeURL = appSupport.appendingPathComponent("default.store")
+
+        // Delete all related files (.store, .store-shm, .store-wal)
+        let filesToDelete = [
+            storeURL,
+            storeURL.appendingPathExtension("shm"),
+            storeURL.appendingPathExtension("wal")
+        ]
+
+        var success = true
+        for url in filesToDelete {
+            if fileManager.fileExists(atPath: url.path) {
+                do {
+                    try fileManager.removeItem(at: url)
+                    print("✅ Deleted: \(url.lastPathComponent)")
+                } catch {
+                    print("❌ Failed to delete \(url.lastPathComponent): \(error)")
+                    success = false
+                }
+            }
+        }
+
+        return success
+    }
 
     var body: some Scene {
         WindowGroup {

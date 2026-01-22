@@ -6,6 +6,7 @@ import ImagePlayground
 struct BackgroundSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.supportsImagePlayground) private var supportsImagePlayground
     @Query private var allSettings: [AppSettings]
 
     @State private var selectedPhoto: PhotosPickerItem?
@@ -112,13 +113,15 @@ struct BackgroundSettingsView: View {
                 }
                 .disabled(isProcessingImage)
 
-                // AI Generation Option
-                Button {
-                    showingImagePlayground = true
-                } label: {
-                    Label("Generate with AI", systemImage: "wand.and.stars")
+                // AI Generation Option (only available on devices with Apple Intelligence)
+                if supportsImagePlayground {
+                    Button {
+                        showingImagePlayground = true
+                    } label: {
+                        Label("Generate with AI", systemImage: "wand.and.stars")
+                    }
+                    .disabled(isProcessingImage)
                 }
-                .disabled(isProcessingImage)
 
                 // Reset Option
                 if settings.backgroundType != .gradient {
@@ -146,7 +149,9 @@ struct BackgroundSettingsView: View {
                 }
             }
         }
-        .imagePlaygroundSheet(isPresented: $showingImagePlayground) { url in
+        .imagePlaygroundSheet(
+            isPresented: supportsImagePlayground ? $showingImagePlayground : .constant(false)
+        ) { url in
             Task {
                 await loadGeneratedImage(from: url)
             }
