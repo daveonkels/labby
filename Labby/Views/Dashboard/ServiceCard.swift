@@ -111,7 +111,7 @@ struct ServiceCard: View {
                 // Edit mode: No button, just content with jiggle
                 // Drag gesture is handled by parent ServiceGridView
                 cardContent
-                    .modifier(JiggleModifier(isJiggling: service.isManuallyAdded))
+                    .modifier(JiggleModifier(isJiggling: service.isManuallyAdded, seed: service.id.stableSeed))
                     .contentShape(Rectangle()) // Ensure entire area is tappable for drag
             } else {
                 // Normal mode: Button with gestures
@@ -536,53 +536,88 @@ struct LongPressHintView: View {
 
 // MARK: - Jiggle Animation (iOS Home Screen Style)
 
-/// Mimics the iOS home screen icon wiggle animation using PhaseAnimator
+/// Mimics the iOS home screen icon wiggle animation with stable per-item randomization.
 struct JiggleModifier: ViewModifier {
     let isJiggling: Bool
+    let seed: UInt64
 
-    // Random values per instance
+    // Randomized values per instance for natural variation
+    @State private var didSetup = false
+    @State private var isAnimating = false
     @State private var rotationDirection: Double = 1
-    @State private var phaseOffset: Int = 0
+    @State private var rotationAmplitude: Double = 0
+    @State private var bounceAmplitude: CGFloat = 0
+    @State private var animationDelay: Double = 0
+    @State private var animationDuration: Double = 0.18
 
     func body(content: Content) -> some View {
-        Group {
-            if isJiggling {
-                content
-                    .phaseAnimator([0, 1, 2, 3]) { view, phase in
-                        view
-                            .rotationEffect(.degrees(rotationForPhase(phase)))
-                            .offset(y: bounceForPhase(phase))
-                    } animation: { phase in
-                        .easeInOut(duration: 0.12)
-                    }
-            } else {
-                content
+        content
+            .rotationEffect(.degrees(isAnimating ? rotationAmplitude * rotationDirection : -rotationAmplitude * rotationDirection))
+            .offset(y: isAnimating ? bounceAmplitude : -bounceAmplitude)
+            .onAppear {
+                configureRandomsIfNeeded()
+                if isJiggling {
+                    startJiggle()
+                }
             }
-        }
-        .onAppear {
-            rotationDirection = Bool.random() ? 1 : -1
-            phaseOffset = Int.random(in: 0...3)
-        }
+            .onChange(of: isJiggling) { newValue in
+                configureRandomsIfNeeded()
+                if newValue {
+                    startJiggle()
+                } else {
+                    withAnimation(.easeOut(duration: 0.08)) {
+                        isAnimating = false
+                    }
+                }
+            }
     }
 
-    private func rotationForPhase(_ phase: Int) -> Double {
-        let adjustedPhase = (phase + phaseOffset) % 4
-        switch adjustedPhase {
-        case 0: return -1.0 * rotationDirection
-        case 1: return 0
-        case 2: return 1.0 * rotationDirection
-        case 3: return 0
-        default: return 0
-        }
+    private func configureRandomsIfNeeded() {
+        guard !didSetup else { return }
+        didSetup = true
+
+        var rng = SeededGenerator(seed: seed)
+        rotationDirection = Bool.random(using: &rng) ? 1 : -1
+        rotationAmplitude = Double.random(in: 0.2...0.35, using: &rng)
+        bounceAmplitude = CGFloat.random(in: 0.05...0.18, using: &rng)
+        animationDelay = Double.random(in: 0...0.18, using: &rng)
+        animationDuration = Double.random(in: 0.24...0.33, using: &rng)
     }
 
-    private func bounceForPhase(_ phase: Int) -> Double {
-        let adjustedPhase = (phase + phaseOffset) % 4
-        switch adjustedPhase {
-        case 0, 2: return 0
-        case 1, 3: return 1.0
-        default: return 0
+    private func startJiggle() {
+        isAnimating = false
+        withAnimation(.easeInOut(duration: animationDuration).repeatForever(autoreverses: true).delay(animationDelay)) {
+            isAnimating = true
         }
+    }
+}
+
+private struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        self.state = seed == 0 ? 0x4d595df4d0f33173 : seed
+    }
+
+    mutating func next() -> UInt64 {
+        state = state &* 6364136223846793005 &+ 1
+        return state
+    }
+}
+
+private extension UUID {
+    var stableSeed: UInt64 {
+        let bytes = self.uuid
+        var value: UInt64 = 0
+        value |= UInt64(bytes.0) << 56
+        value |= UInt64(bytes.1) << 48
+        value |= UInt64(bytes.2) << 40
+        value |= UInt64(bytes.3) << 32
+        value |= UInt64(bytes.4) << 24
+        value |= UInt64(bytes.5) << 16
+        value |= UInt64(bytes.6) << 8
+        value |= UInt64(bytes.7)
+        return value == 0 ? 0x4d595df4d0f33173 : value
     }
 }
 

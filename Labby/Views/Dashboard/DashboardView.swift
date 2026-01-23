@@ -21,10 +21,11 @@ struct DashboardView: View {
     @State private var isDragging = false
     @State private var draggingService: Service?
     @State private var dragOffset: CGSize = .zero
+    @State private var globalItemFrames: [UUID: CGRect] = [:]
 
-    /// Whether there are any manual services that can be edited
-    private var hasManualServices: Bool {
-        services.contains { $0.isManuallyAdded }
+    /// Whether there are any services that can be edited
+    private var hasServices: Bool {
+        !services.isEmpty
     }
 
     private var isFilterActive: Bool {
@@ -84,7 +85,7 @@ struct DashboardView: View {
                 .navigationTitle(isFilterActive ? "" : dashboardTitle)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    if hasManualServices {
+                    if hasServices {
                         ToolbarItem(placement: .primaryAction) {
                             Button(isEditMode ? "Done" : "Edit") {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -139,6 +140,7 @@ struct DashboardView: View {
                                 isFirstSection: true,
                                 isEditMode: isEditMode,
                                 category: nil,
+                                itemFrames: $globalItemFrames,
                                 isDragging: $isDragging,
                                 draggingService: $draggingService,
                                 dragOffset: $dragOffset,
@@ -153,6 +155,7 @@ struct DashboardView: View {
                                         isFirstSection: sectionIndex == 0,
                                         isEditMode: isEditMode,
                                         category: category,
+                                        itemFrames: $globalItemFrames,
                                         isDragging: $isDragging,
                                         draggingService: $draggingService,
                                         dragOffset: $dragOffset,
@@ -192,6 +195,7 @@ struct DashboardView: View {
             .background {
                 DashboardBackground()
             }
+            .coordinateSpace(name: "dashboardGrid")
             .scrollDisabled(isDragging)
             .onChange(of: healthFilter) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -214,36 +218,59 @@ struct DashboardView: View {
     /// Handle service reorder from drag and drop
     /// - Parameters:
     ///   - movedService: The service being dragged
-    ///   - targetIndex: The index in the current category to move to
-    ///   - targetCategory: The category being dragged in (nil = filtered view)
-    private func handleServiceReorder(_ movedService: Service, _ targetIndex: Int, _ targetCategory: String?) {
-        // Only allow reordering manual services
-        guard movedService.isManuallyAdded else { return }
+    ///   - targetId: The service we're hovering over (drop target)
+    private func handleServiceReorder(_ movedService: Service, _ targetId: UUID) {
+        guard let targetService = services.first(where: { $0.id == targetId }) else { return }
 
-        let effectiveCategory = targetCategory ?? movedService.category
+        let sourceCategory = movedService.category
+        let destinationCategory = targetService.category
 
-        // Get services in this category, sorted by current order
-        var categoryServices = services.filter {
-            $0.category == effectiveCategory && $0.isManuallyAdded
-        }.sorted { $0.sortOrder < $1.sortOrder }
+        // Gather source and destination lists, sorted by sortOrder
+        var sourceServices = services
+            .filter { $0.category == sourceCategory }
+            .sorted { $0.sortOrder < $1.sortOrder }
 
-        // Find current index of the moved service
-        guard let currentIndex = categoryServices.firstIndex(where: { $0.id == movedService.id }) else { return }
+        var destinationServices = services
+            .filter { $0.category == destinationCategory }
+            .sorted { $0.sortOrder < $1.sortOrder }
 
-        // Don't do anything if dropped on same position
-        guard currentIndex != targetIndex else { return }
+        if sourceCategory == destinationCategory {
+            // In-category reorder
+            guard
+                let currentIndex = destinationServices.firstIndex(where: { $0.id == movedService.id }),
+                let targetIndex = destinationServices.firstIndex(where: { $0.id == targetId }),
+                currentIndex != targetIndex
+            else { return }
 
-        // Move the item in the array
-        let item = categoryServices.remove(at: currentIndex)
-        let newIndex = min(targetIndex, categoryServices.count)
-        categoryServices.insert(item, at: newIndex)
+            let item = destinationServices.remove(at: currentIndex)
+            let newIndex = min(targetIndex, destinationServices.count)
+            destinationServices.insert(item, at: newIndex)
 
-        // Update sort orders
-        for (index, service) in categoryServices.enumerated() {
-            service.sortOrder = index
+            for (index, service) in destinationServices.enumerated() {
+                service.sortOrder = index
+            }
+        } else {
+            // Cross-category move
+            if let sourceIndex = sourceServices.firstIndex(where: { $0.id == movedService.id }) {
+                sourceServices.remove(at: sourceIndex)
+            }
+
+            movedService.category = destinationCategory
+
+            if let insertIndex = destinationServices.firstIndex(where: { $0.id == targetId }) {
+                destinationServices.insert(movedService, at: insertIndex)
+            } else {
+                destinationServices.append(movedService)
+            }
+
+            for (index, service) in sourceServices.enumerated() {
+                service.sortOrder = index
+            }
+            for (index, service) in destinationServices.enumerated() {
+                service.sortOrder = index
+            }
         }
 
-        // Save changes
         try? modelContext.save()
     }
 }
@@ -689,10 +716,11 @@ struct ServiceGridView: View {
     var isFirstSection: Bool = false
     var isEditMode: Bool = false
     var category: String? = nil
+    @Binding var itemFrames: [UUID: CGRect]
     @Binding var isDragging: Bool
     @Binding var draggingService: Service?
     @Binding var dragOffset: CGSize
-    var onReorder: ((Service, Int, String?) -> Void)? = nil
+    var onReorder: ((Service, UUID) -> Void)? = nil
 
     /// Adaptive grid that maintains roughly square cards
     /// - Portrait: 2 columns (~160-190pt each)
@@ -701,8 +729,9 @@ struct ServiceGridView: View {
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
-    @State private var itemFrames: [UUID: CGRect] = [:]
     @State private var hapticTriggered = false
+    @State private var dragStartFrame: CGRect? = nil
+    @State private var lastReorderTargetId: UUID? = nil
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 16) {
@@ -714,18 +743,21 @@ struct ServiceGridView: View {
                     isFirstCard: isFirstSection && index == 0,
                     isEditMode: isEditMode
                 )
-                .opacity(isBeingDragged ? 0.3 : 1)
-                .scaleEffect(isBeingDragged ? 0.95 : 1)
+                .opacity(isBeingDragged ? 0 : 1)
+                .transition(.identity)
+                .transaction { transaction in
+                    if isBeingDragged { transaction.disablesAnimations = true }
+                }
                 .background(
                     GeometryReader { geo in
                         Color.clear.preference(
                             key: ServiceFramePreferenceKey.self,
-                            value: [service.id: geo.frame(in: .named("serviceGrid"))]
+                            value: [service.id: geo.frame(in: .named("dashboardGrid"))]
                         )
                     }
                 )
-                .gesture(
-                    isEditMode && service.isManuallyAdded ? dragGesture(for: service) : nil
+                .highPriorityGesture(
+                    isEditMode ? dragGesture(for: service) : nil
                 )
             }
 
@@ -734,14 +766,15 @@ struct ServiceGridView: View {
                 AddServiceCard()
             }
         }
-        .coordinateSpace(name: "serviceGrid")
+        .coordinateSpace(name: "dashboardGrid")
         .onPreferenceChange(ServiceFramePreferenceKey.self) { frames in
-            itemFrames = frames
+            // Merge local frames into shared dictionary
+            itemFrames.merge(frames) { _, new in new }
         }
         .overlay(alignment: .topLeading) {
             // Drag preview overlay
             if let service = draggingService,
-               let frame = itemFrames[service.id] {
+               let frame = (dragStartFrame ?? itemFrames[service.id]) {
                 ServiceCard(service: service, isEditMode: true)
                     .frame(width: frame.width, height: frame.height)
                     .scaleEffect(1.08)
@@ -757,73 +790,68 @@ struct ServiceGridView: View {
     }
 
     private func dragGesture(for service: Service) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.15)
-            .sequenced(before: DragGesture(coordinateSpace: .named("serviceGrid")))
-            .onChanged { value in
-                switch value {
-                case .first(true):
-                    // Long press recognized
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("dashboardGrid"))
+            .onChanged { drag in
+                if draggingService == nil {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        draggingService = service
+                        isDragging = true
+                        dragStartFrame = itemFrames[service.id]
+                        lastReorderTargetId = nil
+                    }
+
                     if !hapticTriggered {
                         let generator = UIImpactFeedbackGenerator(style: .medium)
                         generator.impactOccurred()
                         hapticTriggered = true
                     }
-
-                case .second(true, let drag?):
-                    // Start or continue dragging
-                    if draggingService == nil {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            draggingService = service
-                            isDragging = true
-                        }
-                    }
-                    dragOffset = drag.translation
-
-                    // Check for reorder target
-                    checkForReorder(draggingService: service, currentPosition: drag.location)
-
-                default:
-                    break
                 }
+
+                dragOffset = drag.translation
+                checkForReorder(draggingService: service, currentPosition: drag.location)
             }
             .onEnded { _ in
-                // End drag
+                // Immediately hide the overlay (no animation) to prevent ghost
+                draggingService = nil
+                dragOffset = .zero
+                dragStartFrame = nil
+                lastReorderTargetId = nil
+
+                // Animate the scroll unlock
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    draggingService = nil
                     isDragging = false
-                    dragOffset = .zero
                 }
                 hapticTriggered = false
             }
     }
 
     private func checkForReorder(draggingService: Service, currentPosition: CGPoint) {
-        guard let draggingFrame = itemFrames[draggingService.id] else { return }
+        var hoveredId: UUID? = nil
 
-        // Calculate the center of the dragged item
-        let dragCenter = CGPoint(
-            x: draggingFrame.midX + dragOffset.width,
-            y: draggingFrame.midY + dragOffset.height
-        )
-
-        // Find which item we're hovering over
+        // Find which item we're hovering over using the finger position in the shared coordinate space
         for (id, frame) in itemFrames {
             guard id != draggingService.id else { continue }
 
-            if frame.contains(dragCenter) {
-                // Found a target - get its index
-                if let targetIndex = services.firstIndex(where: { $0.id == id }) {
-                    // Trigger reorder with animation
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        onReorder?(draggingService, targetIndex, category)
-                    }
-
-                    // Haptic feedback
-                    let generator = UISelectionFeedbackGenerator()
-                    generator.selectionChanged()
-                }
+            if frame.contains(currentPosition) {
+                hoveredId = id
                 break
             }
+        }
+
+        if let hoveredId {
+            guard hoveredId != lastReorderTargetId else { return }
+            lastReorderTargetId = hoveredId
+
+            // Trigger reorder with animation
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                onReorder?(draggingService, hoveredId)
+            }
+
+            // Haptic feedback
+            let generator = UISelectionFeedbackGenerator()
+            generator.selectionChanged()
+        } else {
+            lastReorderTargetId = nil
         }
     }
 }
