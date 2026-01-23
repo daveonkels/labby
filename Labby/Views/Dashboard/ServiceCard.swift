@@ -537,62 +537,41 @@ struct LongPressHintView: View {
 // MARK: - Jiggle Animation (iOS Home Screen Style)
 
 /// Mimics the iOS home screen icon wiggle animation
-/// Based on Apple's parameters: ~1.15° rotation, 2pt bounce, with random variance
+/// Based on Apple's parameters: ~1° rotation, 1pt bounce, with random variance
 struct JiggleModifier: ViewModifier {
     let isJiggling: Bool
 
-    // iOS wiggle parameters (from UIKit CAKeyframeAnimation analysis)
-    private let wiggleRotateAngle: Double = 0.02 // radians ≈ 1.15 degrees
-    private let wiggleRotateDuration: Double = 0.14
-    private let wiggleBounceY: Double = 2.0
-    private let wiggleBounceDuration: Double = 0.18
-    private let durationVariance: Double = 0.025
+    // Randomized durations for this instance (set on init via State)
+    @State private var rotationDuration: Double = 0.12
+    @State private var bounceDuration: Double = 0.14
+    @State private var rotationDirection: Double = 1
+    @State private var initialized = false
 
-    @State private var isRotating = false
-    @State private var isBouncing = false
-    @State private var rotationDuration: Double = 0.14
-    @State private var bounceDuration: Double = 0.18
+    // Animation amounts - kept subtle like iOS
+    private let rotationAmount: Double = 1.0 // degrees
+    private let bounceAmount: Double = 1.0 // points
 
     func body(content: Content) -> some View {
         content
-            .rotationEffect(.degrees(isRotating ? wiggleRotateAngle * 180 / .pi : -wiggleRotateAngle * 180 / .pi))
-            .offset(y: isBouncing ? 0 : wiggleBounceY)
-            .onChange(of: isJiggling, initial: true) { _, jiggling in
-                if jiggling {
-                    // Randomize durations so items don't sync
-                    rotationDuration = randomize(wiggleRotateDuration, variance: durationVariance)
-                    bounceDuration = randomize(wiggleBounceDuration, variance: durationVariance)
-
-                    // Start with random phase
-                    isRotating = Bool.random()
-                    isBouncing = Bool.random()
-
-                    // Kick off the animations
-                    withAnimation(
-                        .easeInOut(duration: rotationDuration)
-                        .repeatForever(autoreverses: true)
-                    ) {
-                        isRotating.toggle()
-                    }
-                    withAnimation(
-                        .easeInOut(duration: bounceDuration)
-                        .repeatForever(autoreverses: true)
-                    ) {
-                        isBouncing.toggle()
-                    }
-                } else {
-                    // Stop wiggling - return to rest
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        isRotating = false
-                        isBouncing = true
-                    }
-                }
+            .rotationEffect(
+                .degrees(isJiggling ? rotationAmount * rotationDirection : 0),
+                anchor: .center
+            )
+            .offset(y: isJiggling ? bounceAmount : 0)
+            .animation(
+                isJiggling
+                    ? .easeInOut(duration: rotationDuration).repeatForever(autoreverses: true)
+                    : .easeOut(duration: 0.15),
+                value: isJiggling
+            )
+            .onAppear {
+                guard !initialized else { return }
+                initialized = true
+                // Randomize per-instance so cards don't sync
+                rotationDuration = Double.random(in: 0.10...0.14)
+                bounceDuration = Double.random(in: 0.12...0.16)
+                rotationDirection = Bool.random() ? 1 : -1
             }
-    }
-
-    private func randomize(_ interval: Double, variance: Double) -> Double {
-        let random = (Double.random(in: 0..<1000) - 500.0) / 500.0
-        return interval + variance * random
     }
 }
 
