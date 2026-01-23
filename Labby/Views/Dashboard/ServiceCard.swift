@@ -536,42 +536,53 @@ struct LongPressHintView: View {
 
 // MARK: - Jiggle Animation (iOS Home Screen Style)
 
-/// Mimics the iOS home screen icon wiggle animation
-/// Based on Apple's parameters: ~1° rotation, 1pt bounce, with random variance
+/// Mimics the iOS home screen icon wiggle animation using PhaseAnimator
 struct JiggleModifier: ViewModifier {
     let isJiggling: Bool
 
-    // Randomized durations for this instance (set on init via State)
-    @State private var rotationDuration: Double = 0.12
-    @State private var bounceDuration: Double = 0.14
+    // Random values per instance
     @State private var rotationDirection: Double = 1
-    @State private var initialized = false
-
-    // Animation amounts - kept subtle like iOS
-    private let rotationAmount: Double = 1.0 // degrees
-    private let bounceAmount: Double = 1.0 // points
+    @State private var phaseOffset: Int = 0
 
     func body(content: Content) -> some View {
-        content
-            .rotationEffect(
-                .degrees(isJiggling ? rotationAmount * rotationDirection : 0),
-                anchor: .center
-            )
-            .offset(y: isJiggling ? bounceAmount : 0)
-            .animation(
-                isJiggling
-                    ? .easeInOut(duration: rotationDuration).repeatForever(autoreverses: true)
-                    : .easeOut(duration: 0.15),
-                value: isJiggling
-            )
-            .onAppear {
-                guard !initialized else { return }
-                initialized = true
-                // Randomize per-instance so cards don't sync
-                rotationDuration = Double.random(in: 0.10...0.14)
-                bounceDuration = Double.random(in: 0.12...0.16)
-                rotationDirection = Bool.random() ? 1 : -1
+        Group {
+            if isJiggling {
+                content
+                    .phaseAnimator([0, 1, 2, 3]) { view, phase in
+                        view
+                            .rotationEffect(.degrees(rotationForPhase(phase)))
+                            .offset(y: bounceForPhase(phase))
+                    } animation: { phase in
+                        .easeInOut(duration: 0.12)
+                    }
+            } else {
+                content
             }
+        }
+        .onAppear {
+            rotationDirection = Bool.random() ? 1 : -1
+            phaseOffset = Int.random(in: 0...3)
+        }
+    }
+
+    private func rotationForPhase(_ phase: Int) -> Double {
+        let adjustedPhase = (phase + phaseOffset) % 4
+        switch adjustedPhase {
+        case 0: return -1.0 * rotationDirection
+        case 1: return 0
+        case 2: return 1.0 * rotationDirection
+        case 3: return 0
+        default: return 0
+        }
+    }
+
+    private func bounceForPhase(_ phase: Int) -> Double {
+        let adjustedPhase = (phase + phaseOffset) % 4
+        switch adjustedPhase {
+        case 0, 2: return 0
+        case 1, 3: return 1.0
+        default: return 0
+        }
     }
 }
 
