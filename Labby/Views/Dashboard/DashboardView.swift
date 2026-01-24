@@ -21,6 +21,7 @@ struct DashboardView: View {
     @State private var isDragging = false
     @State private var draggingService: Service?
     @State private var dragOffset: CGSize = .zero
+    @State private var dragStartFrame: CGRect? = nil
     @State private var globalItemFrames: [UUID: CGRect] = [:]
 
     /// Whether there are any services that can be edited
@@ -144,6 +145,7 @@ struct DashboardView: View {
                                 isDragging: $isDragging,
                                 draggingService: $draggingService,
                                 dragOffset: $dragOffset,
+                                dragStartFrame: $dragStartFrame,
                                 onReorder: handleServiceReorder
                             )
                         } else {
@@ -159,6 +161,7 @@ struct DashboardView: View {
                                         isDragging: $isDragging,
                                         draggingService: $draggingService,
                                         dragOffset: $dragOffset,
+                                        dragStartFrame: $dragStartFrame,
                                         onReorder: handleServiceReorder
                                     )
                                 } header: {
@@ -197,6 +200,22 @@ struct DashboardView: View {
             }
             .coordinateSpace(name: "dashboardGrid")
             .scrollDisabled(isDragging)
+            .overlay(alignment: .topLeading) {
+                // Single drag preview overlay (rendered once at dashboard level)
+                if let service = draggingService,
+                   let frame = (dragStartFrame ?? globalItemFrames[service.id]) {
+                    ServiceCard(service: service, isEditMode: true)
+                        .frame(width: frame.width, height: frame.height)
+                        .scaleEffect(1.08)
+                        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
+                        .offset(
+                            x: frame.minX + dragOffset.width,
+                            y: frame.minY + dragOffset.height
+                        )
+                        .allowsHitTesting(false)
+                        .zIndex(100)
+                }
+            }
             .onChange(of: healthFilter) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     proxy.scrollTo("top", anchor: .top)
@@ -720,6 +739,7 @@ struct ServiceGridView: View {
     @Binding var isDragging: Bool
     @Binding var draggingService: Service?
     @Binding var dragOffset: CGSize
+    @Binding var dragStartFrame: CGRect?
     var onReorder: ((Service, UUID) -> Void)? = nil
 
     /// Adaptive grid that maintains roughly square cards
@@ -730,7 +750,6 @@ struct ServiceGridView: View {
     ]
 
     @State private var hapticTriggered = false
-    @State private var dragStartFrame: CGRect? = nil
     @State private var lastReorderTargetId: UUID? = nil
 
     var body: some View {
@@ -766,26 +785,9 @@ struct ServiceGridView: View {
                 AddServiceCard()
             }
         }
-        .coordinateSpace(name: "dashboardGrid")
         .onPreferenceChange(ServiceFramePreferenceKey.self) { frames in
             // Merge local frames into shared dictionary
             itemFrames.merge(frames) { _, new in new }
-        }
-        .overlay(alignment: .topLeading) {
-            // Drag preview overlay
-            if let service = draggingService,
-               let frame = (dragStartFrame ?? itemFrames[service.id]) {
-                ServiceCard(service: service, isEditMode: true)
-                    .frame(width: frame.width, height: frame.height)
-                    .scaleEffect(1.08)
-                    .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
-                    .offset(
-                        x: frame.minX + dragOffset.width,
-                        y: frame.minY + dragOffset.height
-                    )
-                    .allowsHitTesting(false)
-                    .zIndex(100)
-            }
         }
     }
 
