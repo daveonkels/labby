@@ -111,6 +111,7 @@ final class AppSettings {
     var backgroundIntensity: Double = 0.5
     var hasCompletedOnboarding: Bool = false
     var hasSeenLongPressHint: Bool = false
+    var collapsedCategoriesRaw: String = "[]"
     var createdAt: Date
 
     var gradientPreset: GradientPreset {
@@ -121,6 +122,32 @@ final class AppSettings {
     var colorSchemePreference: ColorSchemePreference {
         get { ColorSchemePreference(rawValue: colorSchemePreferenceRaw) ?? .system }
         set { colorSchemePreferenceRaw = newValue.rawValue }
+    }
+
+    var collapsedCategories: Set<String> {
+        get {
+            guard let data = collapsedCategoriesRaw.data(using: .utf8),
+                  let array = try? JSONDecoder().decode([String].self, from: data) else {
+                return []
+            }
+            return Set(array)
+        }
+        set {
+            if let data = try? JSONEncoder().encode(Array(newValue)),
+               let string = String(data: data, encoding: .utf8) {
+                collapsedCategoriesRaw = string
+            }
+        }
+    }
+
+    func toggleCategoryCollapsed(_ category: String) {
+        var current = collapsedCategories
+        if current.contains(category) {
+            current.remove(category)
+        } else {
+            current.insert(category)
+        }
+        collapsedCategories = current
     }
 
     init(

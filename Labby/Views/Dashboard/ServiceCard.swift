@@ -560,7 +560,7 @@ struct JiggleModifier: ViewModifier {
                     startJiggle()
                 }
             }
-            .onChange(of: isJiggling) { newValue in
+            .onChange(of: isJiggling) { _, newValue in
                 configureRandomsIfNeeded()
                 if newValue {
                     startJiggle()

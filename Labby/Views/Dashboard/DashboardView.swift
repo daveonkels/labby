@@ -13,6 +13,8 @@ struct DashboardView: View {
     @Query(sort: \Service.sortOrder) private var services: [Service]
     @Query(sort: \Bookmark.sortOrder) private var bookmarks: [Bookmark]
     @Query private var connections: [HomepageConnection]
+    @Query private var appSettingsArray: [AppSettings]
+    private var appSettings: AppSettings? { appSettingsArray.first }
 
     @Binding var searchText: String
     @State private var isRefreshing = false
@@ -151,24 +153,31 @@ struct DashboardView: View {
                         } else {
                             ForEach(Array(groupedServices.enumerated()), id: \.element.0) { sectionIndex, group in
                                 let (category, categoryServices) = group
+                                let isCollapsed = Binding(
+                                    get: { appSettings?.collapsedCategories.contains(category.lowercased()) ?? false },
+                                    set: { _ in appSettings?.toggleCategoryCollapsed(category.lowercased()) }
+                                )
                                 Section {
-                                    ServiceGridView(
-                                        services: categoryServices,
-                                        isFirstSection: sectionIndex == 0,
-                                        isEditMode: isEditMode,
-                                        category: category,
-                                        itemFrames: $globalItemFrames,
-                                        isDragging: $isDragging,
-                                        draggingService: $draggingService,
-                                        dragOffset: $dragOffset,
-                                        dragStartFrame: $dragStartFrame,
-                                        onReorder: handleServiceReorder
-                                    )
+                                    if !isCollapsed.wrappedValue {
+                                        ServiceGridView(
+                                            services: categoryServices,
+                                            isFirstSection: sectionIndex == 0,
+                                            isEditMode: isEditMode,
+                                            category: category,
+                                            itemFrames: $globalItemFrames,
+                                            isDragging: $isDragging,
+                                            draggingService: $draggingService,
+                                            dragOffset: $dragOffset,
+                                            dragStartFrame: $dragStartFrame,
+                                            onReorder: handleServiceReorder
+                                        )
+                                    }
                                 } header: {
                                     CategoryHeader(
                                         title: category,
                                         count: categoryServices.count,
-                                        onlineCount: categoryServices.filter { $0.isHealthy == true }.count
+                                        onlineCount: categoryServices.filter { $0.isHealthy == true }.count,
+                                        isCollapsed: isCollapsed
                                     )
                                 }
                             }
@@ -577,6 +586,7 @@ struct CategoryHeader: View {
     let title: String
     var count: Int = 0
     var onlineCount: Int = 0
+    @Binding var isCollapsed: Bool
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
@@ -669,15 +679,27 @@ struct CategoryHeader: View {
                             .fill(Color.secondary.opacity(0.1))
                     }
             }
+
+            // Collapse/expand chevron
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .rotationEffect(.degrees(isCollapsed ? 0 : 90))
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                isCollapsed.toggle()
+            }
+        }
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, -16)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title) category, \(onlineCount) of \(count) services online")
-        .accessibilityHint(isIconHidden ? "Tap title to add icon" : "Tap icon to change")
+        .accessibilityLabel("\(title) category, \(onlineCount) of \(count) services online, \(isCollapsed ? "collapsed" : "expanded")")
+        .accessibilityHint("Tap to \(isCollapsed ? "expand" : "collapse"). \(isIconHidden ? "Tap title to add icon" : "Tap icon to change")")
         .onAppear {
             loadSavedIcon()
         }
