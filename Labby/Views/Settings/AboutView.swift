@@ -11,6 +11,18 @@ struct AboutView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
+    private var buildDate: String {
+        // Get build date from executable's modification date
+        guard let executableURL = Bundle.main.executableURL,
+              let attributes = try? FileManager.default.attributesOfItem(atPath: executableURL.path),
+              let date = attributes[.modificationDate] as? Date else {
+            return ""
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+
     private var copyrightYears: String {
         let currentYear = Calendar.current.component(.year, from: Date())
         if currentYear > 2026 {
@@ -66,15 +78,23 @@ struct AboutView: View {
                 NavigationLink {
                     LicensesView()
                 } label: {
-                    Label("Licenses", systemImage: "doc.on.doc")
+                    HStack {
+                        Label("Licenses", systemImage: "doc.on.doc")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
+                .tint(.primary)
             }
 
             // Footer
             Section {
             } footer: {
                 VStack(spacing: 4) {
-                    Text("Version \(appVersion) (\(buildNumber))")
+                    Text("Version \(appVersion) (\(buildDate))")
                         .font(.system(size: 13, weight: .medium, design: .monospaced))
                     Text("© \(copyrightYears) Dave Onkels. All Rights Reserved.")
                         .font(.footnote)
