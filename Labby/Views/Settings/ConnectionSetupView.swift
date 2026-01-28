@@ -119,6 +119,7 @@ struct ConnectionSetupView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isEditing ? "Edit Connection" : "Connect Homepage")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -377,6 +378,7 @@ struct AddServiceView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isEditing ? "Edit Service" : "Add Service")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

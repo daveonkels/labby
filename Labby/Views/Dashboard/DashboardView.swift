@@ -599,9 +599,32 @@ struct CategoryHeader: View {
         hasLoadedPreference && savedIconName == ""
     }
 
+    /// Icon type for rendering
+    enum IconType {
+        case sfSymbol(String)
+        case emoji(String)
+    }
+
     /// Returns the icon to display: user preference or fallback to default
-    private var displayIcon: String? {
+    private var displayIcon: IconType? {
         guard !isIconHidden else { return nil }
+        if let saved = savedIconName, !saved.isEmpty {
+            // Check if it's an emoji
+            if saved.hasPrefix("emoji:") {
+                let emojiName = String(saved.dropFirst(6))
+                if let character = CategoryIconPicker.emoji(for: emojiName) {
+                    return .emoji(character)
+                }
+                // Fallback if emoji not found
+                return .sfSymbol(defaultCategoryIcon)
+            }
+            return .sfSymbol(saved)
+        }
+        return .sfSymbol(defaultCategoryIcon)
+    }
+
+    /// Raw icon value for passing to picker (includes emoji: prefix if applicable)
+    private var rawIconValue: String? {
         if let saved = savedIconName, !saved.isEmpty {
             return saved
         }
@@ -637,14 +660,22 @@ struct CategoryHeader: View {
                 Button {
                     showIconPicker = true
                 } label: {
-                    Image(systemName: icon)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 24, height: 24)
-                        .background {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(Color.secondary.opacity(0.15))
+                    Group {
+                        switch icon {
+                        case .sfSymbol(let name):
+                            Image(systemName: name)
+                                .font(.caption.weight(.semibold))
+                        case .emoji(let character):
+                            Text(character)
+                                .font(.system(size: 14))
                         }
+                    }
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .background {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.secondary.opacity(0.15))
+                    }
                 }
                 .buttonStyle(.plain)
             }
@@ -706,7 +737,7 @@ struct CategoryHeader: View {
         .sheet(isPresented: $showIconPicker) {
             CategoryIconPicker(
                 categoryName: title,
-                currentIcon: displayIcon,
+                currentIcon: rawIconValue,
                 onSelect: saveIconPreference
             )
             .presentationDetents([.medium, .large])

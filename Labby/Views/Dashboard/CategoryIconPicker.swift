@@ -8,9 +8,32 @@ struct CategoryIconPicker: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
+    @State private var selectedTab: IconPickerTab = .symbols
+
+    enum IconPickerTab: String, CaseIterable {
+        case symbols = "Symbols"
+        case emoji = "Emoji"
+    }
 
     /// Special value indicating "no icon"
     static let noIconValue = ""
+
+    /// Check if current icon is an emoji
+    private var currentIconIsEmoji: Bool {
+        currentIcon?.hasPrefix("emoji:") ?? false
+    }
+
+    /// Extract emoji name from current icon if it's an emoji
+    private var currentEmojiName: String? {
+        guard let icon = currentIcon, icon.hasPrefix("emoji:") else { return nil }
+        return String(icon.dropFirst(6))
+    }
+
+    /// Current SF Symbol name (nil if current icon is emoji or no icon)
+    private var currentSymbolName: String? {
+        guard let icon = currentIcon, !icon.hasPrefix("emoji:") else { return nil }
+        return icon
+    }
 
     private var filteredSymbols: [(String, [String])] {
         if searchText.isEmpty {
@@ -23,10 +46,23 @@ struct CategoryIconPicker: View {
         }
     }
 
+    private var filteredEmojis: [(name: String, emojis: [(character: String, name: String)])] {
+        Self.filteredEmojiCategories(query: searchText)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
+                    // Tab picker
+                    Picker("Icon Type", selection: $selectedTab) {
+                        ForEach(IconPickerTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+
                     // No Icon option at the top
                     if searchText.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -63,32 +99,16 @@ struct CategoryIconPicker: View {
                         }
                     }
 
-                    ForEach(filteredSymbols, id: \.0) { category, symbols in
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(category)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 20)
-
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 56))], spacing: 12) {
-                                ForEach(symbols, id: \.self) { symbol in
-                                    SymbolButton(
-                                        symbol: symbol,
-                                        isSelected: symbol == currentIcon,
-                                        action: {
-                                            onSelect(symbol)
-                                            dismiss()
-                                        }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                        }
+                    // Content based on selected tab
+                    if selectedTab == .symbols {
+                        symbolsContent
+                    } else {
+                        emojisContent
                     }
                 }
                 .padding(.vertical, 16)
             }
-            .searchable(text: $searchText, prompt: "Search symbols")
+            .searchable(text: $searchText, prompt: selectedTab == .symbols ? "Search symbols" : "Search emoji")
             .navigationTitle("Icon for \(categoryName)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -98,6 +118,147 @@ struct CategoryIconPicker: View {
                     }
                 }
             }
+            .onAppear {
+                // Auto-select emoji tab if current icon is emoji
+                if currentIconIsEmoji {
+                    selectedTab = .emoji
+                }
+            }
+        }
+    }
+
+    // MARK: - Symbols Content
+
+    @ViewBuilder
+    private var symbolsContent: some View {
+        ForEach(filteredSymbols, id: \.0) { category, symbols in
+            VStack(alignment: .leading, spacing: 12) {
+                Text(category)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 56))], spacing: 12) {
+                    ForEach(symbols, id: \.self) { symbol in
+                        SymbolButton(
+                            symbol: symbol,
+                            isSelected: symbol == currentSymbolName,
+                            action: {
+                                onSelect(symbol)
+                                dismiss()
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - Emojis Content
+
+    @ViewBuilder
+    private var emojisContent: some View {
+        ForEach(filteredEmojis, id: \.name) { category in
+            VStack(alignment: .leading, spacing: 12) {
+                Text(category.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 56))], spacing: 12) {
+                    ForEach(category.emojis, id: \.name) { emoji in
+                        EmojiButton(
+                            character: emoji.character,
+                            name: emoji.name,
+                            isSelected: emoji.name == currentEmojiName,
+                            action: {
+                                onSelect("emoji:\(emoji.name)")
+                                dismiss()
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - Emoji Categories
+
+    static let emojiCategories: [(name: String, emojis: [(character: String, name: String)])] = [
+        ("Smileys", [
+            ("😀", "grinning"), ("😊", "smile"), ("😎", "cool"), ("🤓", "nerd"),
+            ("🤖", "robot"), ("👻", "ghost"), ("💀", "skull"), ("👽", "alien"),
+            ("🎃", "pumpkin"), ("😈", "devil")
+        ]),
+        ("Gestures", [
+            ("👍", "thumbsup"), ("👎", "thumbsdown"), ("👋", "wave"), ("🤝", "handshake"),
+            ("👏", "clap"), ("🙌", "celebrate"), ("💪", "muscle"), ("🤞", "fingers_crossed"),
+            ("✌️", "peace"), ("🤙", "call_me")
+        ]),
+        ("Animals", [
+            ("🐶", "dog"), ("🐱", "cat"), ("🐭", "mouse"), ("🐰", "rabbit"),
+            ("🦊", "fox"), ("🐻", "bear"), ("🐼", "panda"), ("🦁", "lion"),
+            ("🐸", "frog"), ("🦄", "unicorn"), ("🐝", "bee"), ("🦋", "butterfly")
+        ]),
+        ("Nature", [
+            ("🌸", "cherry_blossom"), ("🌻", "sunflower"), ("🌲", "evergreen"), ("🌴", "palm_tree"),
+            ("🍀", "four_leaf_clover"), ("🌈", "rainbow"), ("⭐", "star"), ("🌙", "moon"),
+            ("☀️", "sun"), ("🔥", "fire"), ("💧", "droplet"), ("❄️", "snowflake")
+        ]),
+        ("Food & Drink", [
+            ("🍎", "apple"), ("🍕", "pizza"), ("🍔", "burger"), ("🍟", "fries"),
+            ("🌮", "taco"), ("🍩", "donut"), ("🍪", "cookie"), ("🎂", "cake"),
+            ("☕", "coffee"), ("🍺", "beer"), ("🍷", "wine"), ("🧃", "juice_box")
+        ]),
+        ("Activities", [
+            ("⚽", "soccer"), ("🏀", "basketball"), ("🎮", "video_game"), ("🎯", "target"),
+            ("🎨", "art"), ("🎬", "movie"), ("🎤", "microphone"), ("🎧", "headphones"),
+            ("🎸", "guitar"), ("🎹", "piano"), ("🏆", "trophy"), ("🎪", "circus")
+        ]),
+        ("Travel", [
+            ("🚀", "rocket"), ("✈️", "airplane"), ("🚗", "car"), ("🚕", "taxi"),
+            ("🚌", "bus"), ("🚂", "train"), ("🛸", "ufo"), ("⛵", "sailboat"),
+            ("🏠", "house"), ("🏢", "office"), ("🏥", "hospital"), ("🏫", "school")
+        ]),
+        ("Objects", [
+            ("💻", "laptop"), ("🖥️", "desktop"), ("📱", "phone"), ("⌚", "watch"),
+            ("📷", "camera"), ("💡", "lightbulb"), ("🔋", "battery"), ("🔌", "plug"),
+            ("📦", "package"), ("🗄️", "file_cabinet"), ("📚", "books"), ("✏️", "pencil")
+        ]),
+        ("Tools", [
+            ("🔧", "wrench"), ("🔨", "hammer"), ("⚙️", "gear"), ("🔩", "nut_and_bolt"),
+            ("🛠️", "tools"), ("⛏️", "pick"), ("🔑", "key"), ("🔒", "lock"),
+            ("🔓", "unlock"), ("🧲", "magnet"), ("🧪", "test_tube"), ("🔬", "microscope")
+        ]),
+        ("Symbols", [
+            ("❤️", "heart"), ("💜", "purple_heart"), ("💙", "blue_heart"), ("💚", "green_heart"),
+            ("⚡", "lightning"), ("💥", "boom"), ("✨", "sparkles"), ("🎵", "music"),
+            ("💬", "speech"), ("💭", "thought"), ("✅", "check"), ("❌", "cross"),
+            ("⚠️", "warning"), ("🚫", "prohibited"), ("♻️", "recycle"), ("🔄", "refresh")
+        ])
+    ]
+
+    /// Look up emoji character by name
+    static func emoji(for name: String) -> String? {
+        for category in emojiCategories {
+            if let emoji = category.emojis.first(where: { $0.name == name }) {
+                return emoji.character
+            }
+        }
+        return nil
+    }
+
+    /// Filter emoji categories by search query
+    static func filteredEmojiCategories(query: String) -> [(name: String, emojis: [(character: String, name: String)])] {
+        if query.isEmpty {
+            return emojiCategories
+        }
+        let lowercased = query.lowercased()
+        return emojiCategories.compactMap { category in
+            let filtered = category.emojis.filter { $0.name.lowercased().contains(lowercased) }
+            return filtered.isEmpty ? nil : (category.name, filtered)
         }
     }
 
@@ -277,6 +438,29 @@ struct SymbolButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(symbol.replacingOccurrences(of: ".", with: " "))
+    }
+}
+
+struct EmojiButton: View {
+    let character: String
+    let name: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: action) {
+            Text(character)
+                .font(.system(size: 28))
+                .frame(width: 56, height: 56)
+                .background {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isSelected ? LabbyColors.primary(for: colorScheme) : Color.secondary.opacity(0.15))
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name.replacingOccurrences(of: "_", with: " "))
     }
 }
 
