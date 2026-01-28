@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AboutView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var showLicenses = false
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -75,8 +77,8 @@ struct AboutView: View {
                     url: URL(string: "https://labby.casa/privacy.html")!
                 )
 
-                NavigationLink {
-                    LicensesView()
+                Button {
+                    showLicenses = true
                 } label: {
                     HStack {
                         Label("Licenses", systemImage: "doc.on.doc")
@@ -87,7 +89,6 @@ struct AboutView: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
-                .tint(.primary)
             }
 
             // Footer
@@ -116,6 +117,9 @@ struct AboutView: View {
         }
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $showLicenses) {
+            LicensesView()
+        }
     }
 }
 
