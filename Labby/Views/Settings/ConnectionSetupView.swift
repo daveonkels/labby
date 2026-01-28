@@ -292,17 +292,17 @@ struct AddServiceView: View {
     @State private var name = ""
     @State private var urlString = ""
     @State private var category = ""
-    @State private var iconSymbol = "app.fill"
+    @State private var iconSymbol: String? = "app.fill"
+    @State private var iconURL: String?
     @State private var validationError: String?
+    @State private var showIconPicker = false
 
     private var isEditing: Bool { service != nil }
 
-    private let commonSymbols = [
-        "app.fill", "play.tv", "film", "tv", "movieclapper",
-        "house", "server.rack", "network", "cloud", "doc",
-        "folder", "photo", "music.note", "gamecontroller",
-        "chart.bar", "gear", "hammer", "wrench", "externaldrive.fill"
-    ]
+    /// Whether currently using a favicon URL vs symbol/emoji
+    private var useFavicon: Bool {
+        iconURL != nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -331,18 +331,79 @@ struct AddServiceView: View {
                 }
 
                 Section {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 12) {
-                        ForEach(commonSymbols, id: \.self) { symbol in
-                            Button {
-                                iconSymbol = symbol
-                            } label: {
-                                Image(systemName: symbol)
-                                    .font(.title2)
-                                    .frame(width: 44, height: 44)
-                                    .background(iconSymbol == symbol ? LabbyColors.primary(for: colorScheme).opacity(0.2) : Color.clear)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    // Use Favicon option
+                    Button {
+                        fetchFavicon()
+                    } label: {
+                        HStack(spacing: 12) {
+                            // Favicon preview
+                            Group {
+                                if let faviconURL = iconURL, let url = URL(string: faviconURL) {
+                                    AsyncImage(url: url) { phase in
+                                        if case .success(let image) = phase {
+                                            image
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fit)
+                                        } else {
+                                            Image(systemName: "globe")
+                                                .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                                        }
+                                    }
+                                } else {
+                                    Image(systemName: "globe")
+                                        .foregroundStyle(urlString.isEmpty ? .secondary : LabbyColors.primary(for: colorScheme))
+                                }
                             }
-                            .buttonStyle(.plain)
+                            .font(.title2)
+                            .frame(width: 32, height: 32)
+
+                            Text("Use Website Favicon")
+                                .foregroundStyle(urlString.isEmpty ? .secondary : .primary)
+
+                            Spacer()
+
+                            if useFavicon {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                            }
+                        }
+                    }
+                    .disabled(urlString.isEmpty)
+
+                    // Choose Symbol/Emoji option
+                    Button {
+                        showIconPicker = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            // Symbol/emoji preview
+                            Group {
+                                if let symbol = iconSymbol, !useFavicon {
+                                    if symbol.hasPrefix("emoji:") {
+                                        let emojiName = String(symbol.dropFirst(6))
+                                        if let character = CategoryIconPicker.emoji(for: emojiName) {
+                                            Text(character)
+                                        } else {
+                                            Image(systemName: "app.fill")
+                                        }
+                                    } else {
+                                        Image(systemName: symbol)
+                                    }
+                                } else {
+                                    Image(systemName: "square.grid.2x2")
+                                }
+                            }
+                            .font(.title2)
+                            .frame(width: 32, height: 32)
+                            .foregroundStyle(LabbyColors.primary(for: colorScheme))
+
+                            Text("Choose Symbol or Emoji")
+
+                            Spacer()
+
+                            if !useFavicon {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                            }
                         }
                     }
                 } header: {
@@ -400,10 +461,43 @@ struct AddServiceView: View {
                     name = service.name
                     urlString = service.urlString
                     category = service.category ?? ""
-                    iconSymbol = service.iconSFSymbol ?? "app.fill"
+                    iconSymbol = service.iconSFSymbol
+                    iconURL = service.iconURLString
                 }
             }
+            .sheet(isPresented: $showIconPicker) {
+                CategoryIconPicker(
+                    categoryName: "Service",
+                    currentIcon: iconSymbol,
+                    onSelect: { selected in
+                        iconSymbol = selected ?? "app.fill"
+                        iconURL = nil  // Clear favicon when choosing symbol/emoji
+                    },
+                    includeNoIcon: false
+                )
+                .presentationDetents([.medium, .large])
+            }
         }
+    }
+
+    // MARK: - Favicon Fetching
+
+    private func fetchFavicon() {
+        var normalizedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !normalizedURL.hasPrefix("http://") && !normalizedURL.hasPrefix("https://") {
+            normalizedURL = "http://" + normalizedURL
+        }
+
+        guard let url = URL(string: normalizedURL),
+              let scheme = url.scheme,
+              let host = url.host else {
+            return
+        }
+
+        // Construct favicon URL
+        let faviconURL = "\(scheme)://\(host)/favicon.ico"
+        iconURL = faviconURL
+        iconSymbol = nil  // Clear symbol when using favicon
     }
 
     private func saveService() {
@@ -426,7 +520,8 @@ struct AddServiceView: View {
             let urlChanged = existing.urlString != normalizedURL
             existing.name = name
             existing.urlString = normalizedURL
-            existing.iconSFSymbol = iconSymbol
+            existing.iconURLString = iconURL
+            existing.iconSFSymbol = iconURL == nil ? iconSymbol : nil
             existing.category = category.isEmpty ? nil : category
 
             // Reset health check if URL changed
@@ -439,7 +534,8 @@ struct AddServiceView: View {
             let newService = Service(
                 name: name,
                 urlString: normalizedURL,
-                iconSFSymbol: iconSymbol,
+                iconURLString: iconURL,
+                iconSFSymbol: iconURL == nil ? iconSymbol : nil,
                 category: category.isEmpty ? nil : category,
                 isManuallyAdded: true
             )

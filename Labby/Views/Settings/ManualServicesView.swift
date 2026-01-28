@@ -80,13 +80,9 @@ struct ManualServicesView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                Button {
+                LabbyButton(title: "Add Your First Service", icon: "plus.circle.fill") {
                     showingAddService = true
-                } label: {
-                    Label("Add Your First Service", systemImage: "plus.circle.fill")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(LabbyColors.primary(for: colorScheme))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 32)
@@ -148,9 +144,33 @@ struct ManualServiceRow: View {
             // Service icon
             Group {
                 if let sfSymbol = service.iconSFSymbol {
-                    Image(systemName: sfSymbol)
-                        .font(.title3)
-                        .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                    if sfSymbol.hasPrefix("emoji:") {
+                        let emojiName = String(sfSymbol.dropFirst(6))
+                        if let character = CategoryIconPicker.emoji(for: emojiName) {
+                            Text(character)
+                                .font(.title3)
+                        } else {
+                            Image(systemName: "app.fill")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Image(systemName: sfSymbol)
+                            .font(.title3)
+                            .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                    }
+                } else if let iconURL = service.iconURL {
+                    AsyncImage(url: iconURL) { phase in
+                        if case .success(let image) = phase {
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                        } else {
+                            Image(systemName: "app.fill")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 } else {
                     Image(systemName: "app.fill")
                         .font(.title3)

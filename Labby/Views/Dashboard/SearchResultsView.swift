@@ -44,7 +44,23 @@ struct ServiceSearchRow: View {
             HStack(spacing: 12) {
                 // Service icon with dark/light mode support
                 Group {
-                    if let iconURL = service.iconURL {
+                    if let sfSymbol = service.iconSFSymbol {
+                        if sfSymbol.hasPrefix("emoji:") {
+                            let emojiName = String(sfSymbol.dropFirst(6))
+                            if let character = CategoryIconPicker.emoji(for: emojiName) {
+                                Text(character)
+                                    .font(.title3)
+                            } else {
+                                Image(systemName: iconForCategory(service.category))
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Image(systemName: sfSymbol)
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if let iconURL = service.iconURL {
                         ThemedAsyncImage(originalURL: iconURL, colorScheme: colorScheme)
                     } else {
                         Image(systemName: iconForCategory(service.category))

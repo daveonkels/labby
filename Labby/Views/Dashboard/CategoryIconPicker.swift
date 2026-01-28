@@ -4,6 +4,7 @@ struct CategoryIconPicker: View {
     let categoryName: String
     let currentIcon: String?
     let onSelect: (String?) -> Void
+    var includeNoIcon: Bool = true
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -64,7 +65,7 @@ struct CategoryIconPicker: View {
                     .padding(.horizontal, 16)
 
                     // No Icon option at the top
-                    if searchText.isEmpty {
+                    if searchText.isEmpty && includeNoIcon {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Options")
                                 .font(.subheadline.weight(.semibold))

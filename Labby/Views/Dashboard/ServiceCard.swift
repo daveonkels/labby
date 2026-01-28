@@ -255,10 +255,21 @@ struct ServiceIcon: View {
     var body: some View {
         Group {
             if let sfSymbol = service.iconSFSymbol {
-                Image(systemName: sfSymbol)
-                    .font(.title2)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+                // Check if it's an emoji (prefixed with "emoji:")
+                if sfSymbol.hasPrefix("emoji:") {
+                    let emojiName = String(sfSymbol.dropFirst(6))
+                    if let character = CategoryIconPicker.emoji(for: emojiName) {
+                        Text(character)
+                            .font(.system(size: 28))
+                    } else {
+                        DefaultServiceIcon()
+                    }
+                } else {
+                    Image(systemName: sfSymbol)
+                        .font(.title2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+                }
             } else if let iconURL = service.iconURL {
                 ThemedAsyncImage(
                     originalURL: iconURL,
