@@ -6,12 +6,15 @@ struct ServiceCard: View {
     let service: Service
     var isFirstCard: Bool = false
     var isEditMode: Bool = false
+    var isDragging: Bool = false
+    var onEditCategory: ((Service) -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.selectedTab) private var selectedTab
     @Environment(\.modelContext) private var modelContext
     @Query private var allSettings: [AppSettings]
     @State private var tabManager = TabManager.shared
+    private let debugLogger = DebugLogger.shared
     @State private var showOpenedToast = false
     @State private var showCloseTabPopover = false
     @State private var showLongPressHint = false
@@ -28,15 +31,15 @@ struct ServiceCard: View {
     @ViewBuilder
     private var cardContent: some View {
         VStack(spacing: 16) {
-            // Icon container
-            Circle()
-                .fill(.clear)
+            // Icon container with background for contrast
+            ServiceIcon(service: service)
+                .frame(width: 28, height: 28)
                 .frame(width: 56, height: 56)
-                .overlay {
-                    ServiceIcon(service: service)
-                        .frame(width: 28, height: 28)
+                .background {
+                    Circle()
+                        .fill(.quaternary)
                 }
-                .glassEffect(.regular, in: Circle())
+                .compatibleGlassEffect(GlassStyle.regular, in: Circle())
 
             // Name + Status
             VStack(spacing: 6) {
@@ -58,7 +61,11 @@ struct ServiceCard: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
         .padding(.horizontal, 16)
-        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .compatibleGlassEffect(GlassStyle.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
+        }
         .opacity(hasValidURL ? 1.0 : 0.6)
         .overlay(alignment: .topLeading) {
             // Green dot indicator when tab is open
@@ -90,6 +97,7 @@ struct ServiceCard: View {
             if isEditMode && !service.isManuallyAdded {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(.ultraThinMaterial.opacity(0.5))
+                    .allowsHitTesting(false)
             }
         }
     }
@@ -105,29 +113,52 @@ struct ServiceCard: View {
         tabManager.tabs.contains { $0.service.id == service.id }
     }
 
+    @ViewBuilder
+    private var editModeCard: some View {
+        cardContent
+            .contentShape(Rectangle())
+            .modifier(JiggleModifier(isJiggling: service.isManuallyAdded && !isDragging, seed: service.id.stableSeed))
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded {
+                        debugLogger.debug("ServiceCard editMode TAP: '\(service.name)' isDragging=\(isDragging)", category: "ServiceCard")
+                        guard !isDragging else {
+                            debugLogger.debug("ServiceCard editMode TAP BLOCKED (isDragging=true)", category: "ServiceCard")
+                            return
+                        }
+                        onEditCategory?(service)
+                    }
+            )
+            .onAppear {
+                debugLogger.debug("ServiceCard editModeCard appeared: '\(service.name)' isDragging=\(isDragging)", category: "ServiceCard")
+            }
+    }
+
+    @ViewBuilder
+    private var normalModeCard: some View {
+        Button {
+            debugLogger.debug("ServiceCard normalMode BUTTON tap: '\(service.name)'", category: "ServiceCard")
+            openService()
+        } label: {
+            cardContent
+        }
+        .buttonStyle(ServiceCardButtonStyle())
+        .disabled(!hasValidURL)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4)
+                .onEnded { _ in
+                    debugLogger.debug("ServiceCard normalMode LONG PRESS: '\(service.name)'", category: "ServiceCard")
+                    handleLongPress()
+                }
+        )
+    }
+
     var body: some View {
         Group {
             if isEditMode {
-                // Edit mode: No button, just content with jiggle
-                // Drag gesture is handled by parent ServiceGridView
-                cardContent
-                    .modifier(JiggleModifier(isJiggling: service.isManuallyAdded, seed: service.id.stableSeed))
-                    .contentShape(Rectangle()) // Ensure entire area is tappable for drag
+                editModeCard
             } else {
-                // Normal mode: Button with gestures
-                Button {
-                    openService()
-                } label: {
-                    cardContent
-                }
-                .buttonStyle(ServiceCardButtonStyle())
-                .disabled(!hasValidURL)
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4)
-                        .onEnded { _ in
-                            handleLongPress()
-                        }
-                )
+                normalModeCard
             }
         }
         .popover(isPresented: $showCloseTabPopover, arrowEdge: .top) {
@@ -158,13 +189,13 @@ struct ServiceCard: View {
             if isFirstCard && hasValidURL && settings?.hasSeenLongPressHint == false {
                 Task {
                     // Brief delay so user sees the dashboard first
-                    try? await Task.sleep(for: .seconds(1.5))
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
                     showLongPressHint = true
                 }
             }
         }
         .accessibilityLabel("\(service.name) service")
-        .accessibilityHint(hasValidURL ? (hasOpenTab ? "Double tap to open, long press to close tab" : "Double tap to open in browser, long press to open in background") : "No URL configured")
+        .accessibilityHint(isEditMode ? "Tap to change category" : (hasValidURL ? (hasOpenTab ? "Double tap to open, long press to close tab" : "Double tap to open in browser, long press to open in background") : "No URL configured"))
         .accessibilityValue(hasOpenTab ? "Tab open. " : "" + healthAccessibilityValue)
     }
 
@@ -341,7 +372,7 @@ struct ThemedAsyncImage: View {
                             ProgressView()
                                 .scaleEffect(0.8)
                                 .task {
-                                    try? await Task.sleep(for: .seconds(1))
+                                    try? await Task.sleep(nanoseconds: 1_000_000_000)
                                     retryCount += 1
                                 }
                         } else {
@@ -453,10 +484,18 @@ struct HealthBadge: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: statusIcon)
-                .font(.caption2)
-                .foregroundStyle(statusColor)
-                .symbolEffect(.pulse, options: .repeating, isActive: isHealthy == nil)
+            if #available(iOS 17.0, *) {
+                Image(systemName: statusIcon)
+                    .font(.caption2)
+                    .foregroundStyle(statusColor)
+                    .symbolEffect(.pulse, options: .repeating, isActive: isHealthy == nil)
+            } else {
+                Image(systemName: statusIcon)
+                    .font(.caption2)
+                    .foregroundStyle(statusColor)
+                    .opacity(isHealthy == nil ? 0.6 : 1.0)
+                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isHealthy == nil)
+            }
 
             Text(statusText)
                 .font(.caption2.weight(.medium))
@@ -665,6 +704,141 @@ struct ServiceCardDragPreview: View {
                 .fill(.ultraThinMaterial)
                 .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
         }
+    }
+}
+
+// MARK: - Service Category Editor
+
+struct ServiceCategoryEditor: View {
+    let service: Service
+    let onDismiss: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @Query(sort: \Service.sortOrder) private var allServices: [Service]
+
+    @State private var selectedCategory: String
+    @State private var customCategory: String = ""
+    @State private var showCustomCategoryField = false
+    private let debugLogger = DebugLogger.shared
+
+    /// All existing categories from services
+    private var existingCategories: [String] {
+        let categories = Set(allServices.compactMap { $0.category })
+        return Array(categories).sorted()
+    }
+
+    init(service: Service, onDismiss: @escaping () -> Void) {
+        self.service = service
+        self.onDismiss = onDismiss
+        _selectedCategory = State(initialValue: service.category ?? "Other")
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("Move \"\(service.name)\" to a different category")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Existing Categories") {
+                    ForEach(existingCategories, id: \.self) { category in
+                        Button {
+                            selectedCategory = category
+                            showCustomCategoryField = false
+                        } label: {
+                            HStack {
+                                Text(category)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if selectedCategory == category {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Section("Custom Category") {
+                    if showCustomCategoryField {
+                        HStack {
+                            TextField("Category name", text: $customCategory)
+                                .textInputAutocapitalization(.words)
+                                .onChange(of: customCategory) { _, newValue in
+                                    if !newValue.isEmpty {
+                                        selectedCategory = newValue
+                                    }
+                                }
+
+                            if !customCategory.isEmpty {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(LabbyColors.primary(for: colorScheme))
+                            }
+                        }
+                    } else {
+                        Button {
+                            showCustomCategoryField = true
+                        } label: {
+                            Label("Create New Category", systemImage: "plus.circle")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Change Category")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        handleDismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveCategory()
+                    }
+                    .disabled(selectedCategory.isEmpty)
+                }
+            }
+        }
+        .onAppear {
+            debugLogger.debug("Category editor appeared for \(service.name)", category: "ServiceCategoryEditor")
+        }
+        .onDisappear {
+            debugLogger.debug("Category editor disappeared for \(service.name)", category: "ServiceCategoryEditor")
+            onDismiss()
+        }
+    }
+
+    private func saveCategory() {
+        // Update the service category
+        let newCategory = showCustomCategoryField && !customCategory.isEmpty ? customCategory : selectedCategory
+        service.category = newCategory
+
+        // Reorder: move to end of new category
+        let servicesInNewCategory = allServices.filter { $0.category == newCategory }
+        let maxSortOrder = servicesInNewCategory.map { $0.sortOrder }.max() ?? -1
+        service.sortOrder = maxSortOrder + 1
+
+        // Save changes
+        try? modelContext.save()
+        debugLogger.debug("Saved category \(newCategory) for \(service.name)", category: "ServiceCategoryEditor")
+
+        // Haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        handleDismiss()
+    }
+
+    private func handleDismiss() {
+        debugLogger.debug("Category editor dismiss requested for \(service.name)", category: "ServiceCategoryEditor")
+        onDismiss()
+        dismiss()
     }
 }
 

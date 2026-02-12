@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 enum HealthFilter: Equatable {
     case online
@@ -20,11 +19,19 @@ struct DashboardView: View {
     @State private var isRefreshing = false
     @State private var healthFilter: HealthFilter? = nil
     @State private var isEditMode = false
-    @State private var isDragging = false
-    @State private var draggingService: Service?
-    @State private var dragOffset: CGSize = .zero
-    @State private var dragStartFrame: CGRect? = nil
-    @State private var globalItemFrames: [UUID: CGRect] = [:]
+    @State private var editingService: Service? = nil
+    @State private var isReorderDragActive = false
+    // Edit mode drag-to-reorder state
+    @State private var editOrderedServices: [Service] = []
+    @State private var draggingServiceID: UUID?
+    @State private var editDragOffset: CGSize = .zero
+    @State private var editDragStartFrame: CGRect?
+    @State private var editServiceFrames: [UUID: CGRect] = [:]
+    @State private var editLastReorderDate: Date?
+    @State private var editPressServiceID: UUID?
+    @State private var editCurrentDragTranslation: CGSize = .zero
+    @State private var editDragActivationOffset: CGSize = .zero
+    private let debugLogger = DebugLogger.shared
 
     /// Whether there are any services that can be edited
     private var hasServices: Bool {
@@ -76,6 +83,14 @@ struct DashboardView: View {
         return grouped.sorted { $0.key < $1.key }
     }
 
+    /// Groups for edit mode (derived from the mutable editOrderedServices state)
+    private var editGroupedServices: [(String, [Service])] {
+        let grouped = Dictionary(grouping: editOrderedServices) { $0.category ?? "Other" }
+        return grouped.sorted { $0.key < $1.key }
+    }
+
+    private let editColumns = [GridItem(.adaptive(minimum: 160), spacing: 16)]
+
     private var healthStats: (online: Int, offline: Int) {
         let online = services.filter { $0.isHealthy == true }.count
         let offline = services.filter { $0.isHealthy == false || $0.isHealthy == nil }.count
@@ -87,13 +102,27 @@ struct DashboardView: View {
             dashboardContent
                 .navigationTitle(isFilterActive ? "" : dashboardTitle)
                 .navigationBarTitleDisplayMode(.inline)
+                .onAppear {
+                    debugLogger.debug("DashboardView appeared", category: "Dashboard")
+                }
+                .onDisappear {
+                    debugLogger.debug("DashboardView disappeared", category: "Dashboard")
+                }
+                #if DEBUG
+                .overlay {
+                    HitTestProbe(isEditMode: isEditMode)
+                        .allowsHitTesting(false) // CRITICAL: must not block SwiftUI gestures
+                }
+                #endif
                 .toolbar {
                     if hasServices {
                         ToolbarItem(placement: .primaryAction) {
                             Button(isEditMode ? "Done" : "Edit") {
+                                debugLogger.debug("Edit button tapped. Current isEditMode: \(isEditMode)", category: "Dashboard")
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                     isEditMode.toggle()
                                 }
+                                debugLogger.debug("Edit button toggled. New isEditMode: \(isEditMode)", category: "Dashboard")
                             }
                         }
                     }
@@ -106,6 +135,29 @@ struct DashboardView: View {
                     // Start health monitoring when dashboard appears
                     HealthChecker.shared.startMonitoring(modelContext: modelContext)
                 }
+                .sheet(item: $editingService) { service in
+                    ServiceCategoryEditor(service: service, onDismiss: {
+                        debugLogger.debug("Category editor dismissed for \(service.name)", category: "Dashboard")
+                        editingService = nil
+                    })
+                    .presentationDetents([.medium])
+                }
+                .onChange(of: isEditMode) { _, newValue in
+                    debugLogger.debug("isEditMode changed to \(newValue)", category: "Dashboard")
+                    debugLogger.dumpWindowHierarchy(reason: "isEditMode=\(newValue)")
+                    if newValue {
+                        editOrderedServices = buildEditOrderedServices()
+                    } else {
+                        // Clean up drag state
+                        draggingServiceID = nil
+                        editDragOffset = .zero
+                        editDragStartFrame = nil
+                        editPressServiceID = nil
+                        editCurrentDragTranslation = .zero
+                        editDragActivationOffset = .zero
+                        isReorderDragActive = false
+                    }
+                }
         }
     }
 
@@ -115,23 +167,22 @@ struct DashboardView: View {
             ScrollView {
                 LazyVStack(spacing: 12, pinnedViews: [.sectionHeaders]) {
                     // Custom header when filter is active
-                    HStack {
-                        Text(dashboardTitle)
-                            .font(.largeTitle.weight(.bold))
+                    if isFilterActive {
+                        HStack {
+                            Text(dashboardTitle)
+                                .font(.largeTitle.weight(.bold))
 
-                        Spacer()
+                            Spacer()
 
-                        StatusSummaryCard(
-                            online: healthStats.online,
-                            offline: healthStats.offline,
-                            selectedFilter: $healthFilter
-                        )
+                            StatusSummaryCard(
+                                online: healthStats.online,
+                                offline: healthStats.offline,
+                                selectedFilter: $healthFilter
+                            )
+                        }
+                        .padding(.bottom, 8)
+                        .id("top")
                     }
-                    .padding(.bottom, 8)
-                    .opacity(isFilterActive ? 1 : 0)
-                    .frame(height: isFilterActive ? nil : 0)
-                    .clipped()
-                    .id("top")
 
                     if services.isEmpty {
                         EmptyDashboardView()
@@ -143,13 +194,87 @@ struct DashboardView: View {
                                 isFirstSection: true,
                                 isEditMode: isEditMode,
                                 category: nil,
-                                itemFrames: $globalItemFrames,
-                                isDragging: $isDragging,
-                                draggingService: $draggingService,
-                                dragOffset: $dragOffset,
-                                dragStartFrame: $dragStartFrame,
-                                onReorder: handleServiceReorder
+                                onEditCategory: { service in
+                                    editingService = service
+                                }
                             )
+                        } else if isEditMode {
+                            // Edit mode: sectioned view with cross-category drag reordering
+                            // Long press on each card activates drag; container tracks movement.
+                            // Scroll works normally until a card is picked up.
+                            VStack(spacing: 16) {
+                                ForEach(editGroupedServices, id: \.0) { category, categoryServices in
+                                    // Section header (non-interactive in edit mode)
+                                    HStack(spacing: 10) {
+                                        Text(category)
+                                            .retroStyle(.headline, weight: .semibold)
+                                            .foregroundStyle(.primary)
+
+                                        Spacer()
+
+                                        Text("\(categoryServices.count)")
+                                            .font(.caption.weight(.medium).monospacedDigit())
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background {
+                                                Capsule()
+                                                    .fill(Color.secondary.opacity(0.1))
+                                            }
+                                    }
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 4)
+
+                                    // Service cards grid
+                                    LazyVGrid(columns: editColumns, spacing: 16) {
+                                        ForEach(categoryServices) { service in
+                                            let isDragging = service.id == draggingServiceID
+                                            ServiceCard(
+                                                service: service,
+                                                isFirstCard: false,
+                                                isEditMode: true,
+                                                isDragging: isDragging,
+                                                onEditCategory: { s in editingService = s }
+                                            )
+                                            .opacity(isDragging ? 0.001 : 1)
+                                            .zIndex(isDragging ? 1 : 0)
+                                            // Press feedback: slight scale-down while holding
+                                            .scaleEffect(editPressServiceID == service.id && !isDragging ? 0.96 : 1.0)
+                                            .animation(.easeInOut(duration: 0.1), value: editPressServiceID)
+                                            .background(
+                                                GeometryReader { geo in
+                                                    Color.clear.preference(
+                                                        key: ItemFramePreferenceKey<UUID>.self,
+                                                        value: [service.id: geo.frame(in: .named("editGrid"))]
+                                                    )
+                                                }
+                                            )
+                                            // Long press on each card — knows which card, lifts immediately
+                                            .onLongPressGesture(minimumDuration: 0.15, pressing: { isPressing in
+                                                editPressServiceID = isPressing ? service.id : nil
+                                            }) {
+                                                editPressServiceID = nil
+                                                editDragStartFrame = editServiceFrames[service.id]
+                                                editDragActivationOffset = editCurrentDragTranslation
+                                                HapticManager.impact(.medium)
+                                                isReorderDragActive = true
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                    draggingServiceID = service.id
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .coordinateSpace(name: "editGrid")
+                            .onPreferenceChange(ItemFramePreferenceKey<UUID>.self) { frames in
+                                editServiceFrames = frames
+                            }
+                            // Track finger movement — simultaneous so scroll still works
+                            .simultaneousGesture(editDragTrackingGesture)
+                            .overlay(alignment: .topLeading) {
+                                editDragPreview
+                            }
                         } else {
                             ForEach(Array(groupedServices.enumerated()), id: \.element.0) { sectionIndex, group in
                                 let (category, categoryServices) = group
@@ -164,12 +289,9 @@ struct DashboardView: View {
                                             isFirstSection: sectionIndex == 0,
                                             isEditMode: isEditMode,
                                             category: category,
-                                            itemFrames: $globalItemFrames,
-                                            isDragging: $isDragging,
-                                            draggingService: $draggingService,
-                                            dragOffset: $dragOffset,
-                                            dragStartFrame: $dragStartFrame,
-                                            onReorder: handleServiceReorder
+                                            onEditCategory: { service in
+                                                editingService = service
+                                            }
                                         )
                                     }
                                 } header: {
@@ -204,27 +326,23 @@ struct DashboardView: View {
                 .padding()
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFilterActive)
             }
+            .scrollDisabled(isReorderDragActive)
+            .onPreferenceChange(ReorderDragActiveKey.self) { value in
+                if value != isReorderDragActive {
+                    debugLogger.debug("ScrollView: scrollDisabled changing to \(value)", category: "Reorder")
+                    isReorderDragActive = value
+                }
+            }
             .background {
                 DashboardBackground()
             }
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded { _ in
+                        debugLogger.debug("Dashboard tap received", category: "Dashboard")
+                    }
+            )
             .coordinateSpace(name: "dashboardGrid")
-            .scrollDisabled(isDragging)
-            .overlay(alignment: .topLeading) {
-                // Single drag preview overlay (rendered once at dashboard level)
-                if let service = draggingService,
-                   let frame = (dragStartFrame ?? globalItemFrames[service.id]) {
-                    ServiceCard(service: service, isEditMode: true)
-                        .frame(width: frame.width, height: frame.height)
-                        .scaleEffect(1.08)
-                        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
-                        .offset(
-                            x: frame.minX + dragOffset.width,
-                            y: frame.minY + dragOffset.height
-                        )
-                        .allowsHitTesting(false)
-                        .zIndex(100)
-                }
-            }
             .onChange(of: healthFilter) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     proxy.scrollTo("top", anchor: .top)
@@ -243,67 +361,184 @@ struct DashboardView: View {
         isRefreshing = false
     }
 
-    /// Handle service reorder from drag and drop
-    /// - Parameters:
-    ///   - movedService: The service being dragged
-    ///   - targetId: The service we're hovering over (drop target)
-    private func handleServiceReorder(_ movedService: Service, _ targetId: UUID) {
-        guard let targetService = services.first(where: { $0.id == targetId }) else { return }
+    // MARK: - Edit Mode Reordering
 
-        let sourceCategory = movedService.category
-        let destinationCategory = targetService.category
+    /// Build flat ordered list matching visual layout: sorted by category (alpha), then sortOrder within each.
+    private func buildEditOrderedServices() -> [Service] {
+        let grouped = Dictionary(grouping: Array(services)) { $0.category ?? "Other" }
+        return grouped.sorted { $0.key < $1.key }
+            .flatMap { $0.value }
+    }
 
-        // Gather source and destination lists, sorted by sortOrder
-        var sourceServices = services
-            .filter { $0.category == sourceCategory }
-            .sorted { $0.sortOrder < $1.sortOrder }
-
-        var destinationServices = services
-            .filter { $0.category == destinationCategory }
-            .sorted { $0.sortOrder < $1.sortOrder }
-
-        if sourceCategory == destinationCategory {
-            // In-category reorder
-            guard
-                let currentIndex = destinationServices.firstIndex(where: { $0.id == movedService.id }),
-                let targetIndex = destinationServices.firstIndex(where: { $0.id == targetId }),
-                currentIndex != targetIndex
-            else { return }
-
-            let item = destinationServices.remove(at: currentIndex)
-            let newIndex = min(targetIndex, destinationServices.count)
-            destinationServices.insert(item, at: newIndex)
-
-            for (index, service) in destinationServices.enumerated() {
-                service.sortOrder = index
+    /// Tracks finger movement for drag reorder. Runs simultaneously with scroll —
+    /// only acts when `draggingServiceID` is set (by the per-card long press).
+    private var editDragTrackingGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("editGrid"))
+            .onChanged { drag in
+                editCurrentDragTranslation = drag.translation
+                if draggingServiceID != nil {
+                    editDragOffset = CGSize(
+                        width: drag.translation.width - editDragActivationOffset.width,
+                        height: drag.translation.height - editDragActivationOffset.height
+                    )
+                    checkForEditReorder()
+                }
             }
-        } else {
-            // Cross-category move
-            if let sourceIndex = sourceServices.firstIndex(where: { $0.id == movedService.id }) {
-                sourceServices.remove(at: sourceIndex)
+            .onEnded { _ in
+                let wasActive = draggingServiceID != nil
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    draggingServiceID = nil
+                    editDragOffset = .zero
+                    editDragStartFrame = nil
+                }
+                editCurrentDragTranslation = .zero
+                editDragActivationOffset = .zero
+                isReorderDragActive = false
+                editLastReorderDate = nil
+                editPressServiceID = nil
+                if wasActive {
+                    persistEditReorder()
+                }
             }
+    }
 
-            movedService.category = destinationCategory
+    @ViewBuilder
+    private var editDragPreview: some View {
+        if let draggedID = draggingServiceID,
+           let service = editOrderedServices.first(where: { $0.id == draggedID }),
+           let startFrame = editDragStartFrame {
+            ServiceCard(
+                service: service,
+                isFirstCard: false,
+                isEditMode: true,
+                isDragging: true,
+                onEditCategory: nil
+            )
+            .frame(width: startFrame.width, height: startFrame.height)
+            .scaleEffect(1.05)
+            .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
+            .offset(
+                x: startFrame.minX + editDragOffset.width,
+                y: startFrame.minY + editDragOffset.height
+            )
+            .allowsHitTesting(false)
+            .transition(.scale.combined(with: .opacity))
+        }
+    }
 
-            if let insertIndex = destinationServices.firstIndex(where: { $0.id == targetId }) {
-                destinationServices.insert(movedService, at: insertIndex)
-            } else {
-                destinationServices.append(movedService)
-            }
+    private func editServiceAt(point: CGPoint) -> UUID? {
+        for (id, frame) in editServiceFrames {
+            if frame.contains(point) { return id }
+        }
+        return nil
+    }
 
-            for (index, service) in sourceServices.enumerated() {
-                service.sortOrder = index
-            }
-            for (index, service) in destinationServices.enumerated() {
-                service.sortOrder = index
+    private func checkForEditReorder() {
+        guard let draggedID = draggingServiceID,
+              let startFrame = editDragStartFrame else { return }
+
+        // Debounce to prevent oscillation
+        if let lastReorder = editLastReorderDate,
+           Date().timeIntervalSince(lastReorder) < 0.2 { return }
+
+        let dragCenter = CGPoint(
+            x: startFrame.midX + editDragOffset.width,
+            y: startFrame.midY + editDragOffset.height
+        )
+
+        // Phase 1: Exact hit test
+        var targetID: UUID?
+        var insertAfter = false
+        for (id, frame) in editServiceFrames {
+            guard id != draggedID else { continue }
+            if frame.contains(dragCenter) {
+                targetID = id
+                break
             }
         }
 
+        // Phase 2: Nearest card in same row (handles empty grid slots)
+        if targetID == nil {
+            var bestDistance: CGFloat = .infinity
+            for (id, frame) in editServiceFrames {
+                guard id != draggedID else { continue }
+                // Check if drag is roughly in the same row
+                if abs(dragCenter.y - frame.midY) < frame.height * 0.75 {
+                    let dist = abs(dragCenter.x - frame.midX)
+                    if dist < bestDistance {
+                        bestDistance = dist
+                        targetID = id
+                        insertAfter = dragCenter.x > frame.midX
+                    }
+                }
+            }
+        }
+
+        guard let targetID = targetID,
+              let sourceIndex = editOrderedServices.firstIndex(where: { $0.id == draggedID }),
+              let targetIndex = editOrderedServices.firstIndex(where: { $0.id == targetID }) else { return }
+
+        let targetCategory = editOrderedServices[targetIndex].category ?? "Other"
+
+        editLastReorderDate = Date()
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            let movedService = editOrderedServices.remove(at: sourceIndex)
+            var idx = targetIndex
+            // When inserting after (empty slot to the right), adjust for removal shift
+            if insertAfter && sourceIndex > targetIndex {
+                idx = targetIndex + 1
+            }
+            idx = min(idx, editOrderedServices.count)
+            editOrderedServices.insert(movedService, at: idx)
+            if movedService.category != targetCategory {
+                movedService.category = targetCategory
+                debugLogger.debug("Service '\(movedService.name)' category → '\(targetCategory)'", category: "Reorder")
+            }
+        }
+        HapticManager.selection()
+    }
+
+    private func persistEditReorder() {
+        for (index, service) in editOrderedServices.enumerated() {
+            service.sortOrder = index
+        }
         try? modelContext.save()
+        debugLogger.debug("Persisted edit reorder: \(editOrderedServices.count) services", category: "Reorder")
     }
 }
 
 // MARK: - Status Summary Card
+
+#if DEBUG
+struct HitTestProbe: UIViewRepresentable {
+    let isEditMode: Bool
+
+    func makeUIView(context: Context) -> HitTestLoggingView {
+        let view = HitTestLoggingView()
+        view.isUserInteractionEnabled = true
+        view.backgroundColor = .clear
+        view.isEditMode = isEditMode
+        return view
+    }
+
+    func updateUIView(_ uiView: HitTestLoggingView, context: Context) {
+        uiView.isEditMode = isEditMode
+    }
+}
+
+final class HitTestLoggingView: UIView {
+    var isEditMode: Bool = false
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        true
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        DebugLogger.shared.debug("HitTestProbe hit at (\(Int(point.x)), \(Int(point.y))) editMode=\(isEditMode)", category: "HitTest")
+        return nil
+    }
+}
+#endif
 
 struct StatusSummaryCard: View {
     let online: Int
@@ -528,10 +763,18 @@ struct EmptyDashboardView: View {
                 }
 
                 // Center icon
-                Image(systemName: "square.grid.2x2.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(primaryColor.gradient)
-                    .symbolEffect(.bounce, options: .repeating.speed(0.5), value: isAnimating)
+                if #available(iOS 17.0, *) {
+                    Image(systemName: "square.grid.2x2.fill")
+                        .font(.largeTitle)
+                        .foregroundStyle(primaryColor.gradient)
+                        .symbolEffect(.bounce, options: .repeating.speed(0.5), value: isAnimating)
+                } else {
+                    Image(systemName: "square.grid.2x2.fill")
+                        .font(.largeTitle)
+                        .foregroundStyle(primaryColor.gradient)
+                        .scaleEffect(isAnimating ? 1.1 : 0.9)
+                        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isAnimating)
+                }
             }
             .frame(height: 140)
 
@@ -722,11 +965,12 @@ struct CategoryHeader: View {
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
         .onTapGesture {
+            DebugLogger.shared.debug("CategoryHeader TAP: '\(title)' isCollapsed=\(isCollapsed) → toggling", category: "CategoryHeader")
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 isCollapsed.toggle()
             }
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .compatibleGlassEffect(GlassStyle.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, -16)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) category, \(onlineCount) of \(count) services online, \(isCollapsed ? "collapsed" : "expanded")")
@@ -788,12 +1032,10 @@ struct ServiceGridView: View {
     var isFirstSection: Bool = false
     var isEditMode: Bool = false
     var category: String? = nil
-    @Binding var itemFrames: [UUID: CGRect]
-    @Binding var isDragging: Bool
-    @Binding var draggingService: Service?
-    @Binding var dragOffset: CGSize
-    @Binding var dragStartFrame: CGRect?
-    var onReorder: ((Service, UUID) -> Void)? = nil
+    var onEditCategory: ((Service) -> Void)? = nil
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var orderedServices: [Service] = []
 
     /// Adaptive grid that maintains roughly square cards
     /// - Portrait: 2 columns (~160-190pt each)
@@ -802,122 +1044,79 @@ struct ServiceGridView: View {
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
-    @State private var hapticTriggered = false
-    @State private var lastReorderTargetId: UUID? = nil
-
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 16) {
-            ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
-                let isBeingDragged = draggingService?.id == service.id
+        Group {
+            if isEditMode && category != nil {
+                reorderableContent
+            } else {
+                normalContent
+            }
+        }
+        .onChange(of: isEditMode) { _, newValue in
+            DebugLogger.shared.debug("ServiceGridView: isEditMode changed to \(newValue), category=\(category ?? "nil"), services=\(services.count)", category: "ServiceGrid")
+            if newValue {
+                orderedServices = services
+            }
+        }
+        .onAppear {
+            DebugLogger.shared.debug("ServiceGridView appeared: isEditMode=\(isEditMode), category=\(category ?? "nil"), services=\(services.count), using \(isEditMode && category != nil ? "ReorderableGrid" : "normalContent")", category: "ServiceGrid")
+            if isEditMode {
+                orderedServices = services
+            }
+        }
+    }
 
+    @ViewBuilder
+    private var reorderableContent: some View {
+        ReorderableGrid(
+            items: $orderedServices,
+            columns: columns,
+            spacing: 16,
+            onReorder: { item, targetIndex in
+                handleReorder(item: item, targetIndex: targetIndex)
+            },
+            onDragEnd: {
+                persistReorder()
+            }
+        ) { service, isDragging in
+            ServiceCard(
+                service: service,
+                isFirstCard: false,
+                isEditMode: true,
+                isDragging: isDragging,
+                onEditCategory: onEditCategory
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var normalContent: some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(services) { service in
                 ServiceCard(
                     service: service,
-                    isFirstCard: isFirstSection && index == 0,
-                    isEditMode: isEditMode
-                )
-                .opacity(isBeingDragged ? 0 : 1)
-                .transition(.identity)
-                .transaction { transaction in
-                    if isBeingDragged { transaction.disablesAnimations = true }
-                }
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(
-                            key: ServiceFramePreferenceKey.self,
-                            value: [service.id: geo.frame(in: .named("dashboardGrid"))]
-                        )
-                    }
-                )
-                .highPriorityGesture(
-                    isEditMode ? dragGesture(for: service) : nil
+                    isFirstCard: isFirstSection && services.first?.id == service.id,
+                    isEditMode: isEditMode,
+                    onEditCategory: onEditCategory
                 )
             }
-
-            // Add Service card in edit mode
-            if isEditMode {
-                AddServiceCard()
-            }
-        }
-        .onPreferenceChange(ServiceFramePreferenceKey.self) { frames in
-            // Merge local frames into shared dictionary
-            itemFrames.merge(frames) { _, new in new }
         }
     }
 
-    private func dragGesture(for service: Service) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .named("dashboardGrid"))
-            .onChanged { drag in
-                if draggingService == nil {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        draggingService = service
-                        isDragging = true
-                        dragStartFrame = itemFrames[service.id]
-                        lastReorderTargetId = nil
-                    }
+    private func handleReorder(item: Service, targetIndex: Int) {
+        guard let currentIndex = orderedServices.firstIndex(where: { $0.id == item.id }) else { return }
+        guard currentIndex != targetIndex else { return }
 
-                    if !hapticTriggered {
-                        let generator = UIImpactFeedbackGenerator(style: .medium)
-                        generator.impactOccurred()
-                        hapticTriggered = true
-                    }
-                }
-
-                dragOffset = drag.translation
-                checkForReorder(draggingService: service, currentPosition: drag.location)
-            }
-            .onEnded { _ in
-                // Immediately hide the overlay (no animation) to prevent ghost
-                draggingService = nil
-                dragOffset = .zero
-                dragStartFrame = nil
-                lastReorderTargetId = nil
-
-                // Animate the scroll unlock
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    isDragging = false
-                }
-                hapticTriggered = false
-            }
+        let movedItem = orderedServices.remove(at: currentIndex)
+        let insertIndex = min(targetIndex, orderedServices.count)
+        orderedServices.insert(movedItem, at: insertIndex)
     }
 
-    private func checkForReorder(draggingService: Service, currentPosition: CGPoint) {
-        var hoveredId: UUID? = nil
-
-        // Find which item we're hovering over using the finger position in the shared coordinate space
-        for (id, frame) in itemFrames {
-            guard id != draggingService.id else { continue }
-
-            if frame.contains(currentPosition) {
-                hoveredId = id
-                break
-            }
+    private func persistReorder() {
+        for (index, service) in orderedServices.enumerated() {
+            service.sortOrder = index
         }
-
-        if let hoveredId {
-            guard hoveredId != lastReorderTargetId else { return }
-            lastReorderTargetId = hoveredId
-
-            // Trigger reorder with animation
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                onReorder?(draggingService, hoveredId)
-            }
-
-            // Haptic feedback
-            let generator = UISelectionFeedbackGenerator()
-            generator.selectionChanged()
-        } else {
-            lastReorderTargetId = nil
-        }
-    }
-}
-
-// MARK: - Preference Key for Service Frames
-
-struct ServiceFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [UUID: CGRect] = [:]
-
-    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
-        value.merge(nextValue()) { $1 }
+        try? modelContext.save()
     }
 }
 
@@ -1014,7 +1213,7 @@ struct BookmarksSectionHeader: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .compatibleGlassEffect(GlassStyle.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, -16)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Bookmarks section")
