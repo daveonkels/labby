@@ -59,23 +59,31 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Dashboard", systemImage: "square.grid.2x2.fill", value: .dashboard) {
-                DashboardView(searchText: $searchText)
-            }
-
-            Tab("Browser", systemImage: "globe", value: .browser) {
-                BrowserContainerView()
-            }
-
-            Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
-                SettingsView()
-            }
-
-            Tab("Search", systemImage: "magnifyingglass", value: .search, role: .search) {
-                NavigationStack {
-                    SearchResultsView(searchText: $searchText)
+            DashboardView(searchText: $searchText)
+                .tabItem {
+                    Label("Dashboard", systemImage: "square.grid.2x2.fill")
                 }
+                .tag(ContentView.Tab.dashboard)
+
+            BrowserContainerView()
+                .tabItem {
+                    Label("Browser", systemImage: "globe")
+                }
+                .tag(ContentView.Tab.browser)
+
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape.fill")
+                }
+                .tag(ContentView.Tab.settings)
+
+            NavigationStack {
+                SearchResultsView(searchText: $searchText)
             }
+            .tabItem {
+                Label("Search", systemImage: "magnifyingglass")
+            }
+            .tag(ContentView.Tab.search)
         }
         .onAppear {
             // Restore trusted domains for SSL certificate handling

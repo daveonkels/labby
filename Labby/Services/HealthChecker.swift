@@ -39,7 +39,7 @@ final class HealthChecker {
         monitoringTask = Task {
             while !Task.isCancelled {
                 await checkAllServices(modelContext: modelContext)
-                try? await Task.sleep(for: .seconds(checkInterval))
+                try? await Task.sleep(nanoseconds: UInt64(checkInterval * 1_000_000_000))
             }
         }
     }

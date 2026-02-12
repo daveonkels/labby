@@ -7,12 +7,12 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 ### Dashboard
 - **Homepage Integration**: Syncs services from your Homepage instance by parsing the Next.js `__NEXT_DATA__` payload
 - **Native Dashboard**: Services displayed in a grid with category grouping and health status indicators
-- **iOS 26 Liquid Glass UI**: Native TabView with floating search button using iOS 26 design language
+- **Glass UI Design**: Beautiful glass morphism effects using iOS native Material APIs
 - **Health Monitoring**: Background polling shows online/offline status for each service with visual indicators
 - **Status Filtering**: Filter dashboard by online/offline status; filter floats to header when active
 - **Quick Search**: Tap the search button to find services by name across all categories
 - **Themed Icons**: Automatic dark/light mode icon variants for Dashboard Icons and Simple Icons CDNs
-- **Custom Backgrounds**: Personalize dashboard with images from photo library or AI-generated art via Apple Intelligence
+- **Custom Backgrounds**: Personalize dashboard with images from photo library or AI-generated art via Apple Intelligence (iOS 18.1+)
 
 ### Browser
 - **Embedded Browser**: WKWebView-based tabs with persistent cookies/sessions
@@ -34,10 +34,10 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 
 ## Requirements
 
-- iOS 26.0+
-- Xcode 26.0+
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) for project generation
-- Device with Apple Intelligence support (for AI background generation)
+- iOS 17.0+ (iPhone with A12 Bionic or later)
+- Xcode 16.0+
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) for project generation (if rebuilding project file)
+- Device with Apple Intelligence support for AI background generation (iOS 18.1+, optional feature)
 
 ## Setup
 
@@ -61,12 +61,12 @@ A native iOS app for homelab enthusiasts that connects to self-hosted [Homepage]
 ## Architecture
 
 ### Tech Stack
-- **UI**: SwiftUI with iOS 26 Liquid Glass effects
-- **Data**: SwiftData for persistence
+- **UI**: SwiftUI with glass morphism effects (backward-compatible Material APIs)
+- **Data**: SwiftData for persistence (iOS 17+)
 - **Networking**: URLSession + async/await
 - **HTML Parsing**: [SwiftSoup](https://github.com/scinfu/SwiftSoup)
 - **Browser**: WKWebView with persistent WKWebsiteDataStore
-- **AI**: Apple Intelligence ImagePlayground for background generation
+- **AI**: Apple Intelligence ImagePlayground for background generation (iOS 18.1+, optional)
 
 ### Project Structure
 

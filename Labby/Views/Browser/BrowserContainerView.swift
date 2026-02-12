@@ -165,7 +165,7 @@ struct SwipeableBrowserView: View {
     private func scheduleToolbarHide() {
         hideToolbarTask?.cancel()
         hideToolbarTask = Task {
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
             if !Task.isCancelled {
                 await MainActor.run {
                     toolbarVisible = false
@@ -178,7 +178,7 @@ struct SwipeableBrowserView: View {
         dotsVisible = true
         hideDotsTask?.cancel()
         hideDotsTask = Task {
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
             if !Task.isCancelled {
                 await MainActor.run {
                     dotsVisible = false
@@ -410,7 +410,7 @@ struct PageDots: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)
-        .glassEffect(.regular, in: Capsule())
+        .compatibleGlassEffect(GlassStyle.regular, in: Capsule())
         .contentShape(Capsule())
     }
 }
@@ -426,7 +426,7 @@ struct FloatingCloseButton: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.primary)
                 .frame(width: 32, height: 32)
-                .glassEffect(.regular, in: Circle())
+                .compatibleGlassEffect(GlassStyle.regular, in: Circle())
         }
     }
 }

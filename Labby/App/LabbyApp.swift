@@ -10,6 +10,9 @@ struct LabbyApp: App {
         configureTabBarAppearance()
         // Clear debug logs from previous sessions
         DebugLogger.shared.clear()
+        #if DEBUG
+        GlobalTouchLogger.shared.install()
+        #endif
 
         // Initialize ModelContainer with recovery logic
         sharedModelContainer = Self.createModelContainer()

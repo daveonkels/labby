@@ -1,13 +1,22 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+#if canImport(ImagePlayground)
 import ImagePlayground
+#endif
 
 struct BackgroundSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.supportsImagePlayground) private var supportsImagePlayground
     @Query private var allSettings: [AppSettings]
+    
+    // supportsImagePlayground is only available in iOS 18.1+
+    private var supportsImagePlayground: Bool {
+        if #available(iOS 18.1, *) {
+            return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1"
+        }
+        return false
+    }
 
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showingImagePlayground = false
@@ -149,13 +158,15 @@ struct BackgroundSettingsView: View {
                 }
             }
         }
-        .imagePlaygroundSheet(
-            isPresented: supportsImagePlayground ? $showingImagePlayground : .constant(false)
-        ) { url in
-            Task {
-                await loadGeneratedImage(from: url)
+        .modifier(ImagePlaygroundSheetModifier(
+            isPresented: $showingImagePlayground,
+            supportsImagePlayground: supportsImagePlayground,
+            onCompletion: { url in
+                Task {
+                    await loadGeneratedImage(from: url)
+                }
             }
-        }
+        ))
         .overlay {
             if isProcessingImage {
                 Color.black.opacity(0.3)
@@ -494,6 +505,25 @@ struct GradientPresetThumbnail: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+        }
+    }
+}
+
+// MARK: - ImagePlayground Compatibility
+
+/// ViewModifier that conditionally applies imagePlaygroundSheet based on iOS version
+struct ImagePlaygroundSheetModifier: ViewModifier {
+    @Binding var isPresented: Bool
+    let supportsImagePlayground: Bool
+    let onCompletion: (URL) -> Void
+    
+    func body(content: Content) -> some View {
+        if #available(iOS 18.1, *), supportsImagePlayground {
+            content.imagePlaygroundSheet(isPresented: $isPresented) { url in
+                onCompletion(url)
+            }
+        } else {
+            content
         }
     }
 }

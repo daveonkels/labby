@@ -266,6 +266,73 @@ struct LabbySecondaryButton: View {
     }
 }
 
+// MARK: - Backward-Compatible Glass Effect
+
+/// A backward-compatible glass effect that works across iOS versions
+/// Uses standard Material APIs available since iOS 17 to create a glass-like appearance
+/// This replaces the iOS 26+ Liquid Glass framework (.glassEffect) with a compatible alternative
+extension View {
+    /// Applies a glass-like material effect with a shape
+    /// - Parameters:
+    ///   - style: The glass style protocol conforming type
+    ///   - shape: The shape to clip the glass effect to
+    /// - Returns: A view with glass-like appearance using Material
+    @ViewBuilder
+    func compatibleGlassEffect<S: Shape, Style: GlassStyleProtocol>(
+        _ style: Style,
+        in shape: S
+    ) -> some View {
+        self
+            .background {
+                shape
+                    .fill(style.material)
+            }
+            .clipShape(shape)
+    }
+}
+
+/// Protocol for glass effect styles
+protocol GlassStyleProtocol {
+    var material: Material { get }
+    func interactive() -> InteractiveGlassStyle
+}
+
+/// Glass effect style options
+enum GlassStyle: GlassStyleProtocol {
+    case regular
+    case thin
+    case thick
+    
+    var material: Material {
+        switch self {
+        case .regular: return .regularMaterial
+        case .thin: return .thinMaterial
+        case .thick: return .thickMaterial
+        }
+    }
+    
+    func interactive() -> InteractiveGlassStyle {
+        InteractiveGlassStyle(self)
+    }
+}
+
+/// Interactive glass style wrapper
+struct InteractiveGlassStyle: GlassStyleProtocol {
+    let baseStyle: GlassStyle
+    
+    var material: Material {
+        baseStyle.material
+    }
+    
+    init(_ style: GlassStyle) {
+        self.baseStyle = style
+    }
+    
+    func interactive() -> InteractiveGlassStyle {
+        self
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Labby Buttons") {
