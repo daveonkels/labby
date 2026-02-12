@@ -144,7 +144,9 @@ struct DashboardView: View {
                 }
                 .onChange(of: isEditMode) { _, newValue in
                     debugLogger.debug("isEditMode changed to \(newValue)", category: "Dashboard")
+                    #if DEBUG
                     debugLogger.dumpWindowHierarchy(reason: "isEditMode=\(newValue)")
+                    #endif
                     if newValue {
                         editOrderedServices = buildEditOrderedServices()
                     } else {
